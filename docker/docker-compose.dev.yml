@@ -1,0 +1,55 @@
+name: crm-dev
+
+# Dev stack: your local checkout is bind-mounted into the bench as apps/crm.
+#   docker compose -f docker/docker-compose.dev.yml up -d
+# Frontend (Vite HMR): http://crm.localhost:8080   Backend/built UI: http://crm.localhost:8000/crm
+services:
+  mariadb:
+    image: mariadb:10.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -uroot -p123 --silent"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:alpine
+
+  frappe:
+    image: frappe/bench:latest
+    command: bash /dev-init.sh
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - SHELL=/bin/bash
+    working_dir: /home/frappe
+    volumes:
+      - ./dev-init.sh:/dev-init.sh:ro
+      # bench (frappe, whatsapp, venv, sites) persists across down/up
+      - bench:/home/frappe/frappe-bench
+      # your code, live
+      - ..:/home/frappe/frappe-bench/apps/crm
+      # Linux node_modules must not live on the macOS bind mount
+      - crm-node-modules:/home/frappe/frappe-bench/apps/crm/node_modules
+      - crm-frontend-node-modules:/home/frappe/frappe-bench/apps/crm/frontend/node_modules
+    ports:
+      - 8000:8000
+      - 8080:8080
+      - 9000:9000
+
+volumes:
+  mariadb-data:
+  bench:
+  crm-node-modules:
+  crm-frontend-node-modules:
