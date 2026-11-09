@@ -1,19 +1,11 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { call } from 'frappe-ui'
 import { timestampCell } from '@/composables/useTimelinePreferences'
-
-function formatDecimal(value, digits) {
-  return Number(value || 0).toLocaleString(undefined, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  })
-}
-
-export const formatQuantity = (value) => formatDecimal(value, 2)
-
-// the Currency column already says which currency, so no symbol here
-export const formatPrice = (value) => formatDecimal(value, 2)
-export const formatCommission = (value) => formatDecimal(value, 2)
+import {
+  formatCommission,
+  formatPrice,
+  formatQuantity,
+} from '@/utils/recordRows'
 
 // A contact's trades, one server-side page at a time, narrowed by a period
 export function useLinkedTrades(contactId) {

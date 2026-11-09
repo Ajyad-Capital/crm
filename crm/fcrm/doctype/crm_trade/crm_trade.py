@@ -29,6 +29,85 @@ class CRMTrade(Document):
 		timestamp: DF.Datetime
 	# end: auto-generated types
 
+	@staticmethod
+	def default_list_data():
+		columns = [
+			{
+				"label": "Timestamp",
+				"type": "Datetime",
+				"key": "timestamp",
+				"width": "9rem",
+			},
+			{
+				"label": "Account ID",
+				"type": "Data",
+				"key": "account_id",
+				"width": "8rem",
+			},
+			{
+				"label": "Email",
+				"type": "Data",
+				"key": "email",
+				"width": "11rem",
+			},
+			{
+				"label": "Symbol ID",
+				"type": "Data",
+				"key": "symbol_id",
+				"width": "8rem",
+			},
+			{
+				"label": "Symbol",
+				"type": "Data",
+				"key": "symbol",
+				"width": "7rem",
+			},
+			{
+				"label": "Side",
+				"type": "Select",
+				"key": "side",
+				"width": "5rem",
+			},
+			{
+				"label": "Quantity",
+				"type": "Float",
+				"key": "quantity",
+				"width": "6rem",
+			},
+			{
+				"label": "Price",
+				"type": "Currency",
+				"key": "price",
+				"width": "7rem",
+			},
+			{
+				"label": "Currency",
+				"type": "Link",
+				"key": "currency",
+				"width": "6rem",
+			},
+			{
+				"label": "Commission",
+				"type": "Currency",
+				"key": "commission",
+				"width": "7rem",
+			},
+		]
+		rows = [
+			"name",
+			"timestamp",
+			"account_id",
+			"email",
+			"symbol_id",
+			"symbol",
+			"side",
+			"quantity",
+			"price",
+			"currency",
+			"commission",
+		]
+		return {"columns": columns, "rows": rows}
+
 	def validate(self):
 		# Account ID and Email are how a trade is tied to a contact
 		if not (self.account_id or self.email):

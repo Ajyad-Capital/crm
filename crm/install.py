@@ -693,6 +693,8 @@ def add_default_quick_filters():
 		"CRM Task": ["title", "priority", "assigned_to", "status", "due_date"],
 		"CRM Call Log": ["telephony_medium", "type", "status", "from", "to"],
 		"Data Import": ["name", "reference_doctype", "status"],
+		"CRM Transaction": ["account_id", "email"],
+		"CRM Trade": ["account_id", "email", "symbol_id", "side"],
 	}
 
 	for quick_filter in quick_filters:

@@ -127,3 +127,57 @@ class TestContactTransactions(CRMTestCase):
 	def test_transaction_id_is_unique(self):
 		with self.assertRaises(frappe.DuplicateEntryError):
 			make_transaction("TXN-T1", account_id="TXN-ACC-1")
+
+
+class TestTransactionTotals(CRMTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		make_transaction("TOT-1", account_id="TOT-ACC-1", amount=100)
+		make_transaction("TOT-2", account_id="TOT-ACC-1", amount=-30)
+		make_transaction("TOT-3", account_id="TOT-ACC-2", amount=50)
+
+	def test_totals_follow_the_list_filters(self):
+		from crm.fcrm.doctype.crm_transaction.crm_transaction import get_totals
+
+		mine = get_totals({"account_id": "TOT-ACC-1"})
+		self.assertEqual(mine, {"deposits": 100, "withdrawals": 30, "aum": 70})
+
+		# operator filters, as sent by the list's quick filters, and JSON strings both work
+		like = get_totals('{"account_id": ["like", "TOT-ACC-%"]}')
+		self.assertEqual((like["deposits"], like["withdrawals"], like["aum"]), (150, 30, 120))
+
+		self.assertEqual(get_totals({"account_id": "TOT-NONE"}), {"deposits": 0, "withdrawals": 0, "aum": 0})
+
+	def test_rejects_non_dict_filters(self):
+		from crm.fcrm.doctype.crm_transaction.crm_transaction import get_totals
+
+		with self.assertRaises(frappe.ValidationError):
+			get_totals("[1, 2]")
+
+
+class TestTimestampFilter(CRMTestCase):
+	def test_today_is_one_whole_day(self):
+		from crm.api.contact import get_timestamp_filter
+
+		today = nowdate()
+		self.assertEqual(
+			get_timestamp_filter("today"),
+			{"timestamp": ["between", [f"{today} 00:00:00", f"{today} 23:59:59.999999"]]},
+		)
+
+	def test_all_time_is_unbounded(self):
+		from crm.api.contact import get_timestamp_filter
+
+		self.assertEqual(get_timestamp_filter("all"), {})
+
+	def test_custom_range_can_be_open_ended(self):
+		from crm.api.contact import get_timestamp_filter
+
+		self.assertEqual(
+			get_timestamp_filter("custom", date_from="2026-01-05"), {"timestamp": [">=", "2026-01-05 00:00:00"]}
+		)
+		self.assertEqual(
+			get_timestamp_filter("custom", date_to="2026-01-09"),
+			{"timestamp": ["<=", "2026-01-09 23:59:59.999999"]},
+		)
