@@ -25,10 +25,22 @@ class CustomContact(Contact):
 				"width": "12rem",
 			},
 			{
-				"label": "Organization",
+				"label": "Account ID",
 				"type": "Data",
-				"key": "company_name",
+				"key": "ajyad_account_id",
 				"width": "12rem",
+			},
+			{
+				"label": "Type",
+				"type": "Select",
+				"key": "ajyad_type",
+				"width": "8rem",
+			},
+			{
+				"label": "Status",
+				"type": "Select",
+				"key": "ajyad_status",
+				"width": "8rem",
 			},
 			{
 				"label": "Last Modified",
@@ -40,7 +52,9 @@ class CustomContact(Contact):
 		rows = [
 			"name",
 			"full_name",
-			"company_name",
+			"ajyad_account_id",
+			"ajyad_type",
+			"ajyad_status",
 			"email_id",
 			"mobile_no",
 			"modified",

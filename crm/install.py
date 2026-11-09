@@ -5,6 +5,7 @@ import json
 import click
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 
 from crm.domain_enrichment.install import seed_default_rules_and_mappings
 from crm.fcrm.doctype.crm_dashboard.crm_dashboard import create_default_manager_dashboard
@@ -19,7 +20,10 @@ def after_install(force=False):
 	add_default_lead_statuses()
 	add_default_deal_statuses()
 	add_default_communication_statuses()
+	add_contact_custom_fields()
+	add_contact_property_setters()
 	add_default_fields_layout(force)
+	add_contact_fields_to_layouts()
 	add_property_setter()
 	add_email_template_custom_fields()
 	add_email_account_custom_field()
@@ -173,7 +177,7 @@ def add_default_fields_layout(force=False):
 		},
 		"Contact-Quick Entry": {
 			"doctype": "Contact",
-			"layout": '[{"name": "salutation_section", "columns": [{"name": "column_eXks", "fields": ["salutation"]}]}, {"name": "full_name_section", "hideBorder": true, "columns": [{"name": "column_cSxf", "fields": ["first_name"]}, {"name": "column_yBc7", "fields": ["last_name"]}]}, {"name": "email_section", "hideBorder": true, "columns": [{"name": "column_tH3L", "fields": ["email_id"]}]}, {"name": "mobile_gender_section", "hideBorder": true, "columns": [{"name": "column_lrfI", "fields": ["mobile_no"]}, {"name": "column_Tx3n", "fields": ["gender"]}]}, {"name": "organization_section", "hideBorder": true, "columns": [{"name": "column_S0J8", "fields": ["company_name"]}]}, {"name": "designation_section", "hideBorder": true, "columns": [{"name": "column_bsO8", "fields": ["designation"]}]}, {"name": "address_section", "hideBorder": true, "columns": [{"name": "column_W3VY", "fields": ["address"]}]}]',
+			"layout": '[{"name": "full_name_section", "columns": [{"name": "column_cSxf", "fields": ["first_name"]}]}, {"name": "email_section", "hideBorder": true, "columns": [{"name": "column_tH3L", "fields": ["email_id"]}]}, {"name": "mobile_section", "hideBorder": true, "columns": [{"name": "column_lrfI", "fields": ["mobile_no"]}]}]',
 		},
 		"CRM Organization-Quick Entry": {
 			"doctype": "CRM Organization",
@@ -208,7 +212,7 @@ def add_default_fields_layout(force=False):
 		},
 		"Contact-Side Panel": {
 			"doctype": "Contact",
-			"layout": '[{"label": "Details", "name": "details_section", "opened": true, "columns": [{"name": "column_eIWl", "fields": ["salutation", "first_name", "last_name", "email_id", "mobile_no", "gender", "company_name", "designation", "address"]}]}]',
+			"layout": '[{"label": "Details", "name": "details_section", "opened": true, "columns": [{"name": "column_eIWl", "fields": ["first_name", "email_id", "mobile_no"]}]}]',
 		},
 		"CRM Organization-Side Panel": {
 			"doctype": "CRM Organization",
@@ -276,6 +280,175 @@ def add_property_setter():
 		doc.property_type = "Data"
 		doc.value = "email_id"
 		doc.insert()
+
+
+# Ajyad Capital fields on the core Contact doctype. `ajyad_status` is separate from the
+# core `status` field (Passive/Open/Replied) so Frappe's own use of that field keeps working.
+CONTACT_CUSTOM_FIELDS = [
+	{
+		"fieldname": "ajyad_account_id",
+		"fieldtype": "Data",
+		"label": "Account ID",
+		"insert_after": "company_name",
+	},
+	{
+		"fieldname": "ajyad_type",
+		"fieldtype": "Select",
+		"label": "Type",
+		"options": "\nEmployee\nClient",
+		"insert_after": "ajyad_account_id",
+	},
+	{
+		"fieldname": "ajyad_status",
+		"fieldtype": "Select",
+		"label": "Status",
+		"options": "\nApproved\nRejected\nPending",
+		"insert_after": "ajyad_type",
+	},
+	{
+		"fieldname": "ajyad_id_card_number",
+		"fieldtype": "Data",
+		"label": "ID Card Number",
+		"insert_after": "ajyad_status",
+	},
+	{
+		"fieldname": "ajyad_passport_number",
+		"fieldtype": "Data",
+		"label": "Passport Number",
+		"insert_after": "ajyad_id_card_number",
+	},
+	{
+		"fieldname": "ajyad_exit_point",
+		"fieldtype": "Data",
+		"label": "Exit Point",
+		"insert_after": "ajyad_passport_number",
+	},
+	{
+		"default": "0",
+		"fieldname": "ajyad_funded",
+		"fieldtype": "Check",
+		"label": "Funded",
+		"insert_after": "ajyad_exit_point",
+	},
+	{
+		"default": "0",
+		"fieldname": "ajyad_traded",
+		"fieldtype": "Check",
+		"label": "Traded",
+		"insert_after": "ajyad_funded",
+	},
+	{
+		"default": "Today",
+		"fieldname": "ajyad_created_date",
+		"fieldtype": "Date",
+		"label": "Created Date",
+		"read_only": 1,
+		"no_copy": 1,
+		"insert_after": "ajyad_traded",
+	},
+]
+
+CONTACT_QUICK_ENTRY_SECTIONS = [
+	{
+		"name": "account_type_section",
+		"hideBorder": True,
+		"columns": [
+			{"name": "column_aAc1", "fields": ["ajyad_account_id"]},
+			{"name": "column_aTy1", "fields": ["ajyad_type"]},
+		],
+	},
+	{
+		"name": "identity_section",
+		"hideBorder": True,
+		"columns": [
+			{"name": "column_aId1", "fields": ["ajyad_id_card_number"]},
+			{"name": "column_aPp1", "fields": ["ajyad_passport_number"]},
+		],
+	},
+	{
+		"name": "status_exit_section",
+		"hideBorder": True,
+		"columns": [
+			{"name": "column_aSt1", "fields": ["ajyad_status"]},
+			{"name": "column_aEx1", "fields": ["ajyad_exit_point"]},
+		],
+	},
+	{
+		"name": "funded_traded_section",
+		"hideBorder": True,
+		"columns": [
+			{"name": "column_aFu1", "fields": ["ajyad_funded"]},
+			{"name": "column_aTr1", "fields": ["ajyad_traded"]},
+		],
+	},
+]
+
+CONTACT_SIDE_PANEL_FIELDS = [
+	"ajyad_account_id",
+	"ajyad_type",
+	"ajyad_status",
+	"ajyad_id_card_number",
+	"ajyad_passport_number",
+	"ajyad_exit_point",
+	"ajyad_funded",
+	"ajyad_traded",
+	"ajyad_created_date",
+]
+
+
+def add_contact_custom_fields():
+	meta = frappe.get_meta("Contact")
+
+	fields = [field for field in CONTACT_CUSTOM_FIELDS if not meta.has_field(field["fieldname"])]
+	if not fields:
+		return
+
+	click.secho("* Installing Custom Fields in Contact")
+	create_custom_fields({"Contact": fields})
+	frappe.clear_cache(doctype="Contact")
+
+
+def add_contact_property_setters():
+	# The only name field left on the Contact form holds the whole name
+	make_property_setter("Contact", "first_name", "label", "Full Name", "Data")
+
+
+def add_contact_fields_to_layouts():
+	"""Add the Ajyad fields to the Contact Quick Entry and Side Panel layouts.
+
+	Idempotent: fields already present in a layout are left alone, so this is safe to run
+	after the skip-if-exists default layout seeder and from the patch for existing sites.
+	"""
+
+	def present_fields(layout):
+		return {
+			field
+			for section in layout
+			for column in section.get("columns", [])
+			for field in column.get("fields") or []
+		}
+
+	if frappe.db.exists("CRM Fields Layout", "Contact-Quick Entry"):
+		doc = frappe.get_doc("CRM Fields Layout", "Contact-Quick Entry")
+		layout = json.loads(doc.layout or "[]")
+		present = present_fields(layout)
+		missing = [
+			section
+			for section in CONTACT_QUICK_ENTRY_SECTIONS
+			if not present.intersection(f for c in section["columns"] for f in c["fields"])
+		]
+		if missing:
+			doc.layout = json.dumps(layout + missing)
+			doc.save()
+
+	if frappe.db.exists("CRM Fields Layout", "Contact-Side Panel"):
+		doc = frappe.get_doc("CRM Fields Layout", "Contact-Side Panel")
+		layout = json.loads(doc.layout or "[]")
+		missing = [f for f in CONTACT_SIDE_PANEL_FIELDS if f not in present_fields(layout)]
+		if missing and layout and layout[0].get("columns"):
+			layout[0]["columns"][0].setdefault("fields", []).extend(missing)
+			doc.layout = json.dumps(layout)
+			doc.save()
 
 
 def add_email_template_custom_fields():
@@ -515,7 +688,7 @@ def add_default_quick_filters():
 	quick_filters = {
 		"CRM Lead": ["lead_name", "email", "organization", "status", "source"],
 		"CRM Deal": ["organization", "status", "probability", "email"],
-		"Contact": ["status", "email_id", "phone"],
+		"Contact": ["ajyad_status", "email_id", "phone", "ajyad_account_id"],
 		"CRM Organization": ["organization_name", "no_of_employees", "territory", "industry"],
 		"CRM Task": ["title", "priority", "assigned_to", "status", "due_date"],
 		"CRM Call Log": ["telephony_medium", "type", "status", "from", "to"],

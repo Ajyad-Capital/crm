@@ -3,7 +3,27 @@ from frappe import _
 
 
 def validate(doc, method):
+	validate_unique_identifiers(doc)
 	update_deals_email_mobile_no(doc)
+
+
+def validate_unique_identifiers(doc):
+	"""Email and Account ID identify a contact, so neither can be shared between contacts.
+
+	Only checked when the value is new or changed, so existing duplicates don't block
+	unrelated edits to those contacts.
+	"""
+	for fieldname, label in (("email_id", _("Email")), ("ajyad_account_id", _("Account ID"))):
+		value = doc.get(fieldname)
+		if not value or not (doc.is_new() or doc.has_value_changed(fieldname)):
+			continue
+
+		duplicate = frappe.db.exists("Contact", {fieldname: value, "name": ["!=", doc.name]})
+		if duplicate:
+			frappe.throw(
+				_("{0} {1} is already used by contact {2}").format(label, value, duplicate),
+				frappe.DuplicateEntryError,
+			)
 
 
 def update_deals_email_mobile_no(doc):
