@@ -25,4 +25,15 @@ describe('navigationItems', () => {
     expect(routes).not.toContain('Dashboard')
     expect(routes).toContain('Contacts')
   })
+
+  it('lists Transactions and Trades after Contacts', () => {
+    const routes = getNavigationItems().map((item) => item.route)
+    expect(routes).toEqual(
+      expect.arrayContaining(['Contacts', 'Transactions', 'Trades']),
+    )
+    expect(routes.indexOf('Transactions')).toBeGreaterThan(
+      routes.indexOf('Contacts'),
+    )
+    expect(routes.indexOf('Trades')).toBe(routes.indexOf('Transactions') + 1)
+  })
 })

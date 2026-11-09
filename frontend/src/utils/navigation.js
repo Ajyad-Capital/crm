@@ -5,7 +5,9 @@ import NoteIcon from '@/components/Icons/NoteIcon.vue'
 import OrganizationsIcon from '@/components/Icons/OrganizationsIcon.vue'
 import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import TaskIcon from '@/components/Icons/TaskIcon.vue'
+import LucideArrowLeftRight from '~icons/lucide/arrow-left-right'
 import LucideLayoutDashboard from '~icons/lucide/layout-dashboard'
+import LucideTrendingUp from '~icons/lucide/trending-up'
 import router from '@/router'
 
 export const navigationItems = [
@@ -26,6 +28,8 @@ export const navigationItems = [
     route: 'Organizations',
     hidden: true,
   },
+  { label: 'Transactions', icon: LucideArrowLeftRight, route: 'Transactions' },
+  { label: 'Trades', icon: LucideTrendingUp, route: 'Trades' },
   { label: 'Notes', icon: NoteIcon, route: 'Notes' },
   { label: 'Tasks', icon: TaskIcon, route: 'Tasks' },
   { label: 'Call Logs', icon: PhoneIcon, route: 'Call Logs' },

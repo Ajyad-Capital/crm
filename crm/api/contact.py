@@ -148,6 +148,23 @@ def get_period_filters(period: str, date_from=None, date_to=None):
 
 
 @frappe.whitelist()
+def get_timestamp_filter(period: str = "today", date_from: str | None = None, date_to: str | None = None):
+	"""A list view `timestamp` filter for a period, in the site timezone ({} when it is unbounded)."""
+	start, end = get_period_bounds(period, date_from, date_to)
+	last_day = add_days(end, -1) if end else None
+	first = f"{start} 00:00:00" if start else None
+	last = f"{last_day} 23:59:59.999999" if last_day else None
+
+	if first and last:
+		return {"timestamp": ["between", [first, last]]}
+	if first:
+		return {"timestamp": [">=", first]}
+	if last:
+		return {"timestamp": ["<=", last]}
+	return {}
+
+
+@frappe.whitelist()
 def get_linked_transactions(
 	contact: str,
 	start: int = 0,

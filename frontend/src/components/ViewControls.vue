@@ -438,6 +438,14 @@ const defaultFilters = computed(() => ({
   ...importListFilters(route.query),
 }))
 
+// pages that drive `filters` themselves (e.g. a period picker) reload the list on change
+watch(defaultFilters, (value, old_value) => {
+  if (_.isEqual(value, old_value) || !listResource?.params) return
+  listResource.params.default_filters = value
+  if (defaultParams.value) defaultParams.value.default_filters = value
+  listResource.reload()
+})
+
 const filterChip = computed(() => {
   if (props.filtersLabel) {
     return { label: props.filtersLabel, clear: () => emit('clearFilters') }

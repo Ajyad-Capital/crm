@@ -103,6 +103,18 @@ const routes = [
     redirect: { name: 'Contacts' },
   },
   {
+    alias: '/transactions',
+    path: '/transactions/view/:viewType?',
+    name: 'Transactions',
+    component: () => import('@/pages/Transactions.vue'),
+  },
+  {
+    alias: '/trades',
+    path: '/trades/view/:viewType?',
+    name: 'Trades',
+    component: () => import('@/pages/Trades.vue'),
+  },
+  {
     alias: '/call-logs',
     path: '/call-logs/view/:viewType?',
     name: 'Call Logs',
@@ -226,6 +238,8 @@ router.beforeEach(async (to, from, next) => {
       'Notes',
       'Tasks',
       'Call Logs',
+      'Transactions',
+      'Trades',
       'Data Imports',
     ].includes(to.name) &&
     !to.query?.view
@@ -245,6 +259,8 @@ router.beforeEach(async (to, from, next) => {
         Notes: 'FCRM Note',
         Tasks: 'CRM Task',
         'Call Logs': 'CRM Call Log',
+        Transactions: 'CRM Transaction',
+        Trades: 'CRM Trade',
         'Data Imports': 'Data Import',
       }
 
