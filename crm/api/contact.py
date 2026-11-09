@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import add_days, cint, flt, get_first_day, getdate, nowdate
 
 
 def validate(doc, method):
@@ -44,6 +45,114 @@ def update_deals_email_mobile_no(doc):
 					"mobile_no": doc.mobile_no,
 				},
 			)
+
+
+MAX_TRANSACTIONS_PAGE_LENGTH = 500
+
+
+def get_period_bounds(period: str, date_from=None, date_to=None):
+	"""First day (inclusive) and day after the last (exclusive) of a period, in the site timezone.
+
+	Either bound is None when the period is open on that side.
+	"""
+	today = getdate(nowdate())
+
+	if period == "today":
+		start, end = today, today
+	elif period == "yesterday":
+		start = end = add_days(today, -1)
+	elif period == "last_7_days":
+		start, end = add_days(today, -6), today
+	elif period == "last_30_days":
+		start, end = add_days(today, -29), today
+	elif period == "this_month":
+		start, end = get_first_day(today), today
+	elif period == "custom":
+		start = getdate(date_from) if date_from else None
+		end = getdate(date_to) if date_to else None
+	elif period == "all":
+		start = end = None
+	else:
+		frappe.throw(_("Invalid period {0}").format(period))
+
+	return start, add_days(end, 1) if end else None
+
+
+@frappe.whitelist()
+def get_linked_transactions(
+	contact: str,
+	start: int = 0,
+	page_length: int = 20,
+	period: str = "today",
+	date_from: str | None = None,
+	date_to: str | None = None,
+):
+	"""A page of a contact's transactions, matched on its Account ID or any of its emails.
+
+	Amounts are signed: a positive amount is a deposit and a negative one a withdrawal.
+	`period` narrows the rows, `total_count` and the totals to a time window: today,
+	yesterday, last_7_days, last_30_days, this_month, all, or custom (bounded by `date_from`
+	and `date_to`). `overall_count` is the contact's transactions across all time. Counts and totals are computed in the
+	database, not from the returned page.
+	"""
+
+	empty = {"rows": [], "total_count": 0, "overall_count": 0, "deposits": 0, "withdrawals": 0, "aum": 0}
+
+	if not frappe.has_permission("Contact", "read", contact):
+		frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+	start = max(cint(start), 0)
+	page_length = min(max(cint(page_length), 1), MAX_TRANSACTIONS_PAGE_LENGTH)
+	period_start, period_end = get_period_bounds(period, date_from, date_to)
+
+	doc = frappe.get_doc("Contact", contact)
+	or_filters = []
+	if doc.get("ajyad_account_id"):
+		or_filters.append(["account_id", "=", doc.ajyad_account_id])
+	emails = [row.email_id for row in doc.email_ids if row.email_id]
+	if emails:
+		or_filters.append(["email", "in", emails])
+
+	if not or_filters:
+		return empty
+
+	period_filters = []
+	if period_start:
+		period_filters.append(["timestamp", ">=", f"{period_start} 00:00:00"])
+	if period_end:
+		period_filters.append(["timestamp", "<", f"{period_end} 00:00:00"])
+
+	def aggregate(function, filters):
+		# get_list applies the transaction permissions of the current user
+		result = frappe.get_list(
+			"CRM Transaction",
+			or_filters=or_filters,
+			filters=filters,
+			fields=[{function: "amount" if function == "SUM" else "*", "as": "value"}],
+		)
+		return flt(result[0].value) if result else 0
+
+	deposits = aggregate("SUM", [*period_filters, ["amount", ">", 0]])
+	withdrawals = abs(aggregate("SUM", [*period_filters, ["amount", "<", 0]]))
+
+	rows = frappe.get_list(
+		"CRM Transaction",
+		or_filters=or_filters,
+		filters=period_filters,
+		fields=["name", "transaction_id", "account_id", "email", "timestamp", "amount"],
+		order_by="timestamp desc, name desc",
+		offset=start,
+		limit=page_length,
+	)
+
+	return {
+		"rows": rows,
+		"total_count": cint(aggregate("COUNT", period_filters)),
+		"overall_count": cint(aggregate("COUNT", [])),
+		"deposits": deposits,
+		"withdrawals": withdrawals,
+		"aum": deposits - withdrawals,
+	}
 
 
 @frappe.whitelist()
