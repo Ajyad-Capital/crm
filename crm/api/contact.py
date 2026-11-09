@@ -6,6 +6,49 @@ from frappe.utils import add_days, cint, flt, get_first_day, getdate, nowdate
 def validate(doc, method):
 	validate_unique_identifiers(doc)
 	update_deals_email_mobile_no(doc)
+	sync_funded_and_traded(doc)
+
+
+# Contact check that is ticked once the contact has a record of that doctype
+ACTIVITY_FLAGS = {"ajyad_funded": "CRM Transaction", "ajyad_traded": "CRM Trade"}
+
+
+def sync_funded_and_traded(doc):
+	"""Tick Funded / Traded when transactions / trades already match this contact.
+
+	Covers contacts created or edited after their records were imported. The other direction,
+	a new record ticking its contacts, is flag_linked_contacts.
+	"""
+	or_filters = build_link_filters(doc)
+	if not or_filters:
+		return
+
+	for fieldname, doctype in ACTIVITY_FLAGS.items():
+		if not doc.get(fieldname) and frappe.get_all(doctype, or_filters=or_filters, limit=1, pluck="name"):
+			doc.set(fieldname, 1)
+
+
+def flag_linked_contacts(doc, method=None):
+	"""Tick Funded for the contacts of a saved transaction, or Traded for those of a saved trade.
+
+	Only ever ticks: removing or editing a record doesn't untick the contact.
+	"""
+	fieldname = next(f for f, doctype in ACTIVITY_FLAGS.items() if doctype == doc.doctype)
+
+	names = set()
+	if doc.account_id:
+		names.update(frappe.get_all("Contact", filters={"ajyad_account_id": doc.account_id}, pluck="name"))
+	if doc.email:
+		names.update(
+			frappe.get_all(
+				"Contact Email", filters={"email_id": doc.email, "parenttype": "Contact"}, pluck="parent"
+			)
+		)
+
+	if names:
+		frappe.db.set_value(
+			"Contact", {"name": ["in", list(names)], fieldname: 0}, fieldname, 1, update_modified=False
+		)
 
 
 def validate_unique_identifiers(doc):
@@ -47,7 +90,7 @@ def update_deals_email_mobile_no(doc):
 			)
 
 
-MAX_TRANSACTIONS_PAGE_LENGTH = 500
+MAX_TRANSACTIONS_PAGE_LENGTH = 500  # also caps trade pages
 
 
 def get_period_bounds(period: str, date_from=None, date_to=None):
@@ -78,6 +121,32 @@ def get_period_bounds(period: str, date_from=None, date_to=None):
 	return start, add_days(end, 1) if end else None
 
 
+def get_contact_link_filters(contact: str):
+	"""OR filters matching records tied to a contact by its Account ID or any of its emails."""
+	return build_link_filters(frappe.get_doc("Contact", contact))
+
+
+def build_link_filters(doc):
+	or_filters = []
+	if doc.get("ajyad_account_id"):
+		or_filters.append(["account_id", "=", doc.ajyad_account_id])
+	emails = [row.email_id for row in doc.email_ids if row.email_id]
+	if emails:
+		or_filters.append(["email", "in", emails])
+	return or_filters
+
+
+def get_period_filters(period: str, date_from=None, date_to=None):
+	"""Timestamp filters for a period; see get_period_bounds."""
+	period_start, period_end = get_period_bounds(period, date_from, date_to)
+	filters = []
+	if period_start:
+		filters.append(["timestamp", ">=", f"{period_start} 00:00:00"])
+	if period_end:
+		filters.append(["timestamp", "<", f"{period_end} 00:00:00"])
+	return filters
+
+
 @frappe.whitelist()
 def get_linked_transactions(
 	contact: str,
@@ -103,24 +172,11 @@ def get_linked_transactions(
 
 	start = max(cint(start), 0)
 	page_length = min(max(cint(page_length), 1), MAX_TRANSACTIONS_PAGE_LENGTH)
-	period_start, period_end = get_period_bounds(period, date_from, date_to)
-
-	doc = frappe.get_doc("Contact", contact)
-	or_filters = []
-	if doc.get("ajyad_account_id"):
-		or_filters.append(["account_id", "=", doc.ajyad_account_id])
-	emails = [row.email_id for row in doc.email_ids if row.email_id]
-	if emails:
-		or_filters.append(["email", "in", emails])
+	period_filters = get_period_filters(period, date_from, date_to)
+	or_filters = get_contact_link_filters(contact)
 
 	if not or_filters:
 		return empty
-
-	period_filters = []
-	if period_start:
-		period_filters.append(["timestamp", ">=", f"{period_start} 00:00:00"])
-	if period_end:
-		period_filters.append(["timestamp", "<", f"{period_end} 00:00:00"])
 
 	def aggregate(function, filters):
 		# get_list applies the transaction permissions of the current user
@@ -153,6 +209,70 @@ def get_linked_transactions(
 		"withdrawals": withdrawals,
 		"aum": deposits - withdrawals,
 	}
+
+
+@frappe.whitelist()
+def get_linked_trades(
+	contact: str,
+	start: int = 0,
+	page_length: int = 20,
+	period: str = "today",
+	date_from: str | None = None,
+	date_to: str | None = None,
+):
+	"""A page of a contact's trades, matched on its Account ID or any of its emails.
+
+	`period` narrows the rows and `total_count` to a time window (see get_linked_transactions
+	for the values). `overall_count` is the contact's trades across all time. Counts are
+	computed in the database, not from the returned page.
+	"""
+
+	empty = {"rows": [], "total_count": 0, "overall_count": 0}
+
+	if not frappe.has_permission("Contact", "read", contact):
+		frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+	start = max(cint(start), 0)
+	page_length = min(max(cint(page_length), 1), MAX_TRANSACTIONS_PAGE_LENGTH)
+	period_filters = get_period_filters(period, date_from, date_to)
+	or_filters = get_contact_link_filters(contact)
+
+	if not or_filters:
+		return empty
+
+	def count(filters):
+		# get_list applies the trade permissions of the current user
+		result = frappe.get_list(
+			"CRM Trade",
+			or_filters=or_filters,
+			filters=filters,
+			fields=[{"COUNT": "*", "as": "value"}],
+		)
+		return cint(result[0].value) if result else 0
+
+	rows = frappe.get_list(
+		"CRM Trade",
+		or_filters=or_filters,
+		filters=period_filters,
+		fields=[
+			"name",
+			"account_id",
+			"email",
+			"symbol_id",
+			"symbol",
+			"quantity",
+			"price",
+			"currency",
+			"side",
+			"commission",
+			"timestamp",
+		],
+		order_by="timestamp desc, name desc",
+		offset=start,
+		limit=page_length,
+	)
+
+	return {"rows": rows, "total_count": count(period_filters), "overall_count": count([])}
 
 
 @frappe.whitelist()

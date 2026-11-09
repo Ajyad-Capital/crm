@@ -154,12 +154,37 @@
           />
         </template>
 
-        <EmptyState
-          v-else
-          :icon="tab.iconLeft"
-          :name="tab.label"
-          :description="__('Nothing to show for this contact yet.')"
-        />
+        <template v-else-if="tab.value === 'trades'">
+          <template v-if="tradesData.overall_count">
+            <TransactionPeriodFilter
+              v-model:period="tradePeriod"
+              v-model:date-from="tradeDateFrom"
+              v-model:date-to="tradeDateTo"
+              class="mt-4"
+            />
+            <TradeSummaryCards class="mt-3" :total-trades="tradesData.total_count" />
+            <TransactionsListView
+              v-if="tradeRows.length"
+              v-model:page-length="tradePageLength"
+              class="mt-4"
+              :rows="tradeRows"
+              :columns="tradeColumns"
+              :total-count="tradesData.total_count"
+              @load-more="loadTrades(true)"
+            />
+            <div v-else class="mt-10 text-center text-p-base text-ink-gray-5">
+              {{ __('No trades in this period.') }}
+            </div>
+          </template>
+          <EmptyState
+            v-else
+            :icon="tab.iconLeft"
+            name="Trades"
+            :description="
+              __('No trades match this contact\'s Account ID or email.')
+            "
+          />
+        </template>
       </template>
     </Tabs>
   </div>
@@ -185,12 +210,14 @@ import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import CameraIcon from '@/components/Icons/CameraIcon.vue'
 import TransactionsListView from '@/components/ListViews/TransactionsListView.vue'
 import TransactionSummaryCards from '@/components/TransactionSummaryCards.vue'
+import TradeSummaryCards from '@/components/TradeSummaryCards.vue'
 import TransactionPeriodFilter from '@/components/TransactionPeriodFilter.vue'
 import LucideArrowLeftRight from '~icons/lucide/arrow-left-right'
 import LucideTrendingUp from '~icons/lucide/trending-up'
 import { validateIsImageFile, setupCustomizations } from '@/utils'
 import { useContactFields } from '@/composables/useContactFields'
 import { timestampCell } from '@/composables/useTimelinePreferences'
+import { useLinkedTrades } from '@/composables/useLinkedTrades'
 import { useDocument } from '@/data/document'
 import { getSettings } from '@/stores/settings'
 import { getMeta } from '@/stores/meta'
@@ -268,6 +295,17 @@ function changeContactImage(file) {
   })
 }
 
+const {
+  data: tradesData,
+  rows: tradeRows,
+  columns: tradeColumns,
+  pageLength: tradePageLength,
+  period: tradePeriod,
+  dateFrom: tradeDateFrom,
+  dateTo: tradeDateTo,
+  load: loadTrades,
+} = useLinkedTrades(props.contactId)
+
 const activeTab = ref('transactions')
 const tabs = [
   {
@@ -276,12 +314,11 @@ const tabs = [
     iconLeft: LucideArrowLeftRight,
     count: computed(() => transactionsData.overall_count),
   },
-  // placeholder until the Trades columns and data source are defined
   {
     value: 'trades',
     label: 'Trades',
     iconLeft: LucideTrendingUp,
-    count: 0,
+    count: computed(() => tradesData.overall_count),
   },
 ]
 

@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from crm.api.contact import flag_linked_contacts
+
 
 class CRMTransaction(Document):
 	# begin: auto-generated types
@@ -26,3 +28,6 @@ class CRMTransaction(Document):
 		# Account ID and Email are how a transaction is tied to a contact
 		if not (self.account_id or self.email):
 			frappe.throw(_("Either Account ID or Email is required to link the transaction to a contact"))
+
+	def on_update(self):
+		flag_linked_contacts(self)
