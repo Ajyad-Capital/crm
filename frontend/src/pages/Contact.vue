@@ -1,24 +1,4 @@
 <template>
-  <LayoutHeader v-if="contact.doc">
-    <template #left-header>
-      <Breadcrumbs :items="breadcrumbs">
-        <template #prefix="{ item }">
-          <Icon v-if="item.icon" :icon="item.icon" class="mr-2 h-4" />
-        </template>
-      </Breadcrumbs>
-    </template>
-    <template #right-header>
-      <CustomActions
-        v-if="contact._actions?.length"
-        :actions="contact._actions"
-      />
-      <Button
-        :label="__('New Deal')"
-        iconLeft="lucide-plus"
-        @click="openDealModal"
-      />
-    </template>
-  </LayoutHeader>
   <div v-if="contact.doc" ref="parentRef" class="flex h-full">
     <Resizer
       v-if="contact.doc"
@@ -142,19 +122,43 @@
         </Badge>
       </template>
       <template #tab-panel="{ tab }">
-        <DealsListView
-          v-if="tab.label === 'Deals' && rows.length"
-          class="mt-4"
-          :rows="rows"
-          :columns="columns"
-          :options="{ selectable: false, showTooltip: false }"
-        />
+        <template v-if="tab.value === 'transactions'">
+          <template v-if="transactionsData.overall_count">
+            <TransactionPeriodFilter
+              v-model:period="transactionPeriod"
+              v-model:date-from="transactionDateFrom"
+              v-model:date-to="transactionDateTo"
+              class="mt-4"
+            />
+            <TransactionSummaryCards class="mt-3" v-bind="transactionSummary" />
+            <TransactionsListView
+              v-if="transactionRows.length"
+              v-model:page-length="transactionPageLength"
+              class="mt-4"
+              :rows="transactionRows"
+              :columns="transactionColumns"
+              :total-count="transactionsData.total_count"
+              @load-more="loadTransactions(true)"
+            />
+            <div v-else class="mt-10 text-center text-p-base text-ink-gray-5">
+              {{ __('No transactions in this period.') }}
+            </div>
+          </template>
+          <EmptyState
+            v-else
+            :icon="tab.iconLeft"
+            name="Transactions"
+            :description="
+              __('No transactions match this contact\'s Account ID or email.')
+            "
+          />
+        </template>
 
         <EmptyState
-          v-if="!rows.length"
+          v-else
           :icon="tab.iconLeft"
-          name="Deals"
-          :description="__('Use New Deal to create a deal for this contact.')"
+          :name="tab.label"
+          :description="__('Nothing to show for this contact yet.')"
         />
       </template>
     </Tabs>
@@ -171,39 +175,28 @@
     :docname="contact.doc.name"
     name="Contacts"
   />
-  <DealModal
-    v-if="showDealModal"
-    v-model="showDealModal"
-    :defaults="dealDefaults"
-  />
 </template>
 
 <script setup>
 import ErrorPage from '@/components/ErrorPage.vue'
 import Resizer from '@/components/Resizer.vue'
-import Icon from '@/components/Icon.vue'
 import SidePanelLayout from '@/components/SidePanelLayout.vue'
-import LayoutHeader from '@/components/LayoutHeader.vue'
 import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import CameraIcon from '@/components/Icons/CameraIcon.vue'
-import DealsIcon from '@/components/Icons/DealsIcon.vue'
-import DealsListView from '@/components/ListViews/DealsListView.vue'
-import DealModal from '@/components/Modals/DealModal.vue'
-import CustomActions from '@/components/CustomActions.vue'
+import TransactionsListView from '@/components/ListViews/TransactionsListView.vue'
+import TransactionSummaryCards from '@/components/TransactionSummaryCards.vue'
+import TransactionPeriodFilter from '@/components/TransactionPeriodFilter.vue'
+import LucideArrowLeftRight from '~icons/lucide/arrow-left-right'
+import LucideTrendingUp from '~icons/lucide/trending-up'
 import { validateIsImageFile, setupCustomizations } from '@/utils'
 import { useContactFields } from '@/composables/useContactFields'
 import { timestampCell } from '@/composables/useTimelinePreferences'
-import { getView } from '@/utils/view'
 import { useDocument } from '@/data/document'
 import { getSettings } from '@/stores/settings'
 import { getMeta } from '@/stores/meta'
 import { globalStore } from '@/stores/global.js'
-import { usersStore } from '@/stores/users.js'
-import { organizationsStore } from '@/stores/organizations.js'
-import { statusesStore } from '@/stores/statuses'
 import { callEnabled } from '@/composables/telephony'
 import {
-  Breadcrumbs,
   Avatar,
   FileUploader,
   Tabs,
@@ -215,16 +208,13 @@ import {
 } from 'frappe-ui'
 import { useDoctypeModal } from '@/composables/doctypeModal'
 import { useTelemetry } from '@framework/ui/telemetry'
-import { ref, computed, watch, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import EmptyState from '@/components/ListViews/EmptyState.vue'
 
 const { brand } = getSettings()
 const { makeCall, $dialog, $socket } = globalStore()
 
-const { getUser } = usersStore()
-const { getOrganization } = organizationsStore()
-const { getDealStatus } = statusesStore()
 const { doctypeMeta } = getMeta('Contact')
 const { capture } = useTelemetry()
 
@@ -232,7 +222,6 @@ const props = defineProps({
   contactId: { type: String, required: true },
 })
 
-const route = useRoute()
 const router = useRouter()
 
 const errorTitle = ref('')
@@ -253,35 +242,6 @@ onMounted(async () => {
   if (contact.doc) await triggerOnRender()
 })
 
-const breadcrumbs = computed(() => {
-  let items = [{ label: __('Contacts'), route: { name: 'Contacts' } }]
-
-  if (route.query.view || route.query.viewType) {
-    let view = getView(route.query.view, route.query.viewType, 'Contact')
-    if (view) {
-      items.push({
-        label: __(view.label),
-        icon: view.icon,
-        route: {
-          name: 'Contacts',
-          params: { viewType: route.query.viewType },
-          query: { view: route.query.view },
-        },
-      })
-    }
-  }
-
-  items.push({
-    label: title.value,
-    route: {
-      name: 'Contact',
-      params: { contactId: props.contactId },
-      query: route.query,
-    },
-  })
-  return items
-})
-
 const title = computed(() => {
   let t = doctypeMeta.value?.title_field || 'name'
   return contact.doc?.[t] || props.contactId
@@ -294,26 +254,6 @@ usePageMeta(() => {
   }
 })
 const showDeleteLinkedDocModal = ref(false)
-const showDealModal = ref(false)
-const dealDefaults = ref({})
-
-// company_name is free text, so only pick an existing organization; otherwise the deal creates one
-async function openDealModal() {
-  const company = contact.doc.company_name
-  const isOrganization =
-    company &&
-    (await call('frappe.client.get_count', {
-      doctype: 'CRM Organization',
-      filters: { name: company },
-    }))
-  dealDefaults.value = {
-    contact: contact.doc.name,
-    ...(isOrganization
-      ? { organization: company }
-      : { organization_name: company }),
-  }
-  showDealModal.value = true
-}
 
 async function deleteContact() {
   showDeleteLinkedDocModal.value = true
@@ -328,28 +268,104 @@ function changeContactImage(file) {
   })
 }
 
-const activeTab = ref('deals')
+const activeTab = ref('transactions')
 const tabs = [
   {
-    value: 'deals',
-    label: 'Deals',
-    iconLeft: DealsIcon,
-    count: computed(() => deals.data?.length),
+    value: 'transactions',
+    label: 'Transactions',
+    iconLeft: LucideArrowLeftRight,
+    count: computed(() => transactionsData.overall_count),
+  },
+  // placeholder until the Trades columns and data source are defined
+  {
+    value: 'trades',
+    label: 'Trades',
+    iconLeft: LucideTrendingUp,
+    count: 0,
   },
 ]
 
-const deals = createResource({
-  url: 'crm.api.contact.get_linked_deals',
-  cache: ['deals', props.contactId],
-  params: { contact: props.contactId },
-  auto: true,
+const transactionPageLength = ref(20)
+const transactionPeriod = ref('today')
+const transactionDateFrom = ref('')
+const transactionDateTo = ref('')
+const transactionsData = reactive({
+  rows: [],
+  total_count: 0,
+  overall_count: 0,
+  deposits: 0,
+  withdrawals: 0,
+  aum: 0,
 })
 
-const rows = computed(() => {
-  if (!deals.data || deals.data == []) return []
+// one page at a time; `append` loads the next page below the current rows
+let transactionsRequest = 0
+async function loadTransactions(append = false) {
+  const request = ++transactionsRequest
+  const data = await call('crm.api.contact.get_linked_transactions', {
+    contact: props.contactId,
+    start: append ? transactionsData.rows.length : 0,
+    page_length: transactionPageLength.value,
+    period: transactionPeriod.value,
+    date_from: transactionDateFrom.value || null,
+    date_to: transactionDateTo.value || null,
+  })
+  // a newer filter change has already asked again; drop this late answer
+  if (request !== transactionsRequest) return
+  Object.assign(transactionsData, data, {
+    rows: append ? [...transactionsData.rows, ...data.rows] : data.rows,
+  })
+}
 
-  return deals.data.map((row) => getDealRowObject(row))
-})
+loadTransactions()
+watch(
+  [
+    transactionPageLength,
+    transactionPeriod,
+    transactionDateFrom,
+    transactionDateTo,
+  ],
+  () => loadTransactions(),
+)
+
+const { getFormattedCurrency: getTransactionCurrency } =
+  getMeta('CRM Transaction')
+
+// amounts are signed: positive is a deposit, negative a withdrawal
+function getTransactionType(amount) {
+  if (amount > 0) return __('Deposit')
+  if (amount < 0) return __('Withdrawal')
+  return ''
+}
+
+const transactionRows = computed(() =>
+  transactionsData.rows.map((row) => ({
+    name: row.name,
+    transaction_id: row.transaction_id,
+    account_id: row.account_id,
+    email: row.email,
+    timestamp: timestampCell(row.timestamp),
+    type: getTransactionType(row.amount),
+    amount: getTransactionCurrency('amount', row),
+  })),
+)
+
+const transactionSummary = computed(() => ({
+  deposits: getTransactionCurrency('amount', {
+    amount: transactionsData.deposits,
+  }),
+  withdrawals: getTransactionCurrency('amount', {
+    amount: transactionsData.withdrawals,
+  }),
+  aum: getTransactionCurrency('amount', { amount: transactionsData.aum }),
+}))
+
+const transactionColumns = [
+  { label: __('ID'), key: 'transaction_id', width: '14rem' },
+  { label: __('Timestamp'), key: 'timestamp', width: '14rem' },
+  { label: __('Type'), key: 'type', width: '10rem' },
+  { label: __('Amount'), key: 'amount', align: 'right', width: '8rem' },
+]
 
 const sections = createResource({
   url: 'crm.fcrm.doctype.crm_fields_layout.crm_fields_layout.get_sidepanel_sections',
@@ -383,71 +399,6 @@ const fieldPlaceholderMap = {
   mobile_no: __('Add Mobile Number...'),
   company_name: __('Add Organization...'),
 }
-
-const { getFormattedCurrency } = getMeta('CRM Deal')
-
-const columns = computed(() => dealColumns)
-
-function getDealRowObject(deal) {
-  return {
-    name: deal.name,
-    organization: {
-      label: deal.organization,
-      logo: getOrganization(deal.organization)?.organization_logo,
-    },
-    deal_value: getFormattedCurrency('deal_value', deal),
-    status: {
-      label: deal.status,
-      color: getDealStatus(deal.status)?.color,
-    },
-    email: deal.email,
-    mobile_no: deal.mobile_no,
-    deal_owner: {
-      label: deal.deal_owner && getUser(deal.deal_owner).full_name,
-      ...(deal.deal_owner && getUser(deal.deal_owner)),
-    },
-    modified: timestampCell(deal.modified),
-  }
-}
-
-const dealColumns = [
-  {
-    label: __('Organization'),
-    key: 'organization',
-    width: '11rem',
-  },
-  {
-    label: __('Amount'),
-    key: 'deal_value',
-    align: 'right',
-    width: '9rem',
-  },
-  {
-    label: __('Status'),
-    key: 'status',
-    width: '10rem',
-  },
-  {
-    label: __('Email'),
-    key: 'email',
-    width: '12rem',
-  },
-  {
-    label: __('Mobile Number'),
-    key: 'mobile_no',
-    width: '11rem',
-  },
-  {
-    label: __('Deal Owner'),
-    key: 'deal_owner',
-    width: '10rem',
-  },
-  {
-    label: __('Last Modified'),
-    key: 'modified',
-    width: '8rem',
-  },
-]
 
 const { showModal } = useDoctypeModal()
 

@@ -10,7 +10,9 @@ describe('navigationItems', () => {
     const mobileRoutes = getNavigationItems({ mobile: true }).map(
       (item) => item.route,
     )
-    expect(mobileRoutes).not.toContain('Dashboard')
+    navigationItems
+      .filter((item) => item.desktopOnly)
+      .forEach((item) => expect(mobileRoutes).not.toContain(item.route))
     expect(mobileRoutes).not.toContain('Calendar')
     expect(mobileRoutes).toContain('Contacts')
   })
@@ -20,6 +22,7 @@ describe('navigationItems', () => {
     expect(routes).not.toContain('Leads')
     expect(routes).not.toContain('Deals')
     expect(routes).not.toContain('Organizations')
+    expect(routes).not.toContain('Dashboard')
     expect(routes).toContain('Contacts')
   })
 })

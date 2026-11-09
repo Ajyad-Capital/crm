@@ -106,7 +106,7 @@
     >
       <template #tab-suffix="{ tab, active }">
         <Badge
-          v-if="tab.value === 'deals'"
+          v-if="['transactions', 'trades'].includes(tab.value)"
           :class="[active ? 'bg-surface-gray-10' : 'bg-gray-600']"
           variant="solid"
           theme="gray"
@@ -129,15 +129,36 @@
             />
           </div>
         </div>
-        <DealsListView
-          v-else-if="tab.label === 'Deals' && rows.length"
-          class="mt-4"
-          :rows="rows"
-          :columns="columns"
-          :options="{ selectable: false, showTooltip: false }"
-        />
+        <template
+          v-else-if="
+            tab.value === 'transactions' && transactionsData.overall_count
+          "
+        >
+          <TransactionPeriodFilter
+            v-model:period="transactionPeriod"
+            v-model:date-from="transactionDateFrom"
+            v-model:date-to="transactionDateTo"
+            class="mt-4"
+          />
+          <TransactionSummaryCards class="mt-3" v-bind="transactionSummary" />
+          <TransactionsListView
+            v-if="transactionRows.length"
+            v-model:page-length="transactionPageLength"
+            class="mt-4"
+            :rows="transactionRows"
+            :columns="transactionColumns"
+            :total-count="transactionsData.total_count"
+            @load-more="loadTransactions(true)"
+          />
+          <div v-else class="mt-10 text-center text-p-base text-ink-gray-5">
+            {{ __('No transactions in this period.') }}
+          </div>
+        </template>
         <div
-          v-if="tab.label === 'Deals' && !rows.length"
+          v-if="
+            (tab.value === 'transactions' && !transactionsData.overall_count) ||
+            tab.value === 'trades'
+          "
           class="grid flex-1 place-items-center text-2xl-medium text-ink-gray-4"
         >
           <div class="flex flex-col items-center justify-center space-y-3">
@@ -157,8 +178,11 @@ import LayoutHeader from '@/components/LayoutHeader.vue'
 import DetailsIcon from '@/components/Icons/DetailsIcon.vue'
 import PhoneIcon from '@/components/Icons/PhoneIcon.vue'
 import CameraIcon from '@/components/Icons/CameraIcon.vue'
-import DealsIcon from '@/components/Icons/DealsIcon.vue'
-import DealsListView from '@/components/ListViews/DealsListView.vue'
+import LucideArrowLeftRight from '~icons/lucide/arrow-left-right'
+import LucideTrendingUp from '~icons/lucide/trending-up'
+import TransactionsListView from '@/components/ListViews/TransactionsListView.vue'
+import TransactionSummaryCards from '@/components/TransactionSummaryCards.vue'
+import TransactionPeriodFilter from '@/components/TransactionPeriodFilter.vue'
 import { validateIsImageFile } from '@/utils'
 import { useContactFields } from '@/composables/useContactFields'
 import { timestampCell } from '@/composables/useTimelinePreferences'
@@ -167,9 +191,7 @@ import { useDocument } from '@/data/document'
 import { getSettings } from '@/stores/settings'
 import { getMeta } from '@/stores/meta'
 import { globalStore } from '@/stores/global.js'
-import { usersStore } from '@/stores/users.js'
 import { organizationsStore } from '@/stores/organizations.js'
-import { statusesStore } from '@/stores/statuses'
 import { callEnabled } from '@/composables/telephony'
 import {
   Breadcrumbs,
@@ -184,15 +206,13 @@ import {
 } from 'frappe-ui'
 import { useDoctypeModal } from '@/composables/doctypeModal'
 import { useTelemetry } from '@framework/ui/telemetry'
-import { ref, computed, h, onMounted } from 'vue'
+import { ref, reactive, computed, watch, h, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const { brand } = getSettings()
 const { $dialog, makeCall } = globalStore()
 
-const { getUser } = usersStore()
 const { getOrganization } = organizationsStore()
-const { getDealStatus } = statusesStore()
 const { doctypeMeta } = getMeta('Contact')
 const { capture } = useTelemetry()
 
@@ -298,26 +318,103 @@ const tabs = [
     iconLeft: DetailsIcon,
   },
   {
-    name: 'Deals',
-    value: 'deals',
-    label: __('Deals'),
-    iconLeft: h(DealsIcon, { class: 'h-4 w-4' }),
-    count: computed(() => deals.data?.length),
+    name: 'Transactions',
+    value: 'transactions',
+    label: __('Transactions'),
+    iconLeft: h(LucideArrowLeftRight, { class: 'h-4 w-4' }),
+    count: computed(() => transactionsData.overall_count),
+  },
+  // placeholder until the Trades columns and data source are defined
+  {
+    name: 'Trades',
+    value: 'trades',
+    label: __('Trades'),
+    iconLeft: h(LucideTrendingUp, { class: 'h-4 w-4' }),
+    count: 0,
   },
 ]
 
-const deals = createResource({
-  url: 'crm.api.contact.get_linked_deals',
-  cache: ['deals', props.contactId],
-  params: { contact: props.contactId },
-  auto: true,
+const transactionPageLength = ref(20)
+const transactionPeriod = ref('today')
+const transactionDateFrom = ref('')
+const transactionDateTo = ref('')
+const transactionsData = reactive({
+  rows: [],
+  total_count: 0,
+  overall_count: 0,
+  deposits: 0,
+  withdrawals: 0,
+  aum: 0,
 })
 
-const rows = computed(() => {
-  if (!deals.data || deals.data == []) return []
+// one page at a time; `append` loads the next page below the current rows
+let transactionsRequest = 0
+async function loadTransactions(append = false) {
+  const request = ++transactionsRequest
+  const data = await call('crm.api.contact.get_linked_transactions', {
+    contact: props.contactId,
+    start: append ? transactionsData.rows.length : 0,
+    page_length: transactionPageLength.value,
+    period: transactionPeriod.value,
+    date_from: transactionDateFrom.value || null,
+    date_to: transactionDateTo.value || null,
+  })
+  // a newer filter change has already asked again; drop this late answer
+  if (request !== transactionsRequest) return
+  Object.assign(transactionsData, data, {
+    rows: append ? [...transactionsData.rows, ...data.rows] : data.rows,
+  })
+}
 
-  return deals.data.map((row) => getDealRowObject(row))
-})
+loadTransactions()
+watch(
+  [
+    transactionPageLength,
+    transactionPeriod,
+    transactionDateFrom,
+    transactionDateTo,
+  ],
+  () => loadTransactions(),
+)
+
+const { getFormattedCurrency: getTransactionCurrency } =
+  getMeta('CRM Transaction')
+
+// amounts are signed: positive is a deposit, negative a withdrawal
+function getTransactionType(amount) {
+  if (amount > 0) return __('Deposit')
+  if (amount < 0) return __('Withdrawal')
+  return ''
+}
+
+const transactionRows = computed(() =>
+  transactionsData.rows.map((row) => ({
+    name: row.name,
+    transaction_id: row.transaction_id,
+    account_id: row.account_id,
+    email: row.email,
+    timestamp: timestampCell(row.timestamp),
+    type: getTransactionType(row.amount),
+    amount: getTransactionCurrency('amount', row),
+  })),
+)
+
+const transactionSummary = computed(() => ({
+  deposits: getTransactionCurrency('amount', {
+    amount: transactionsData.deposits,
+  }),
+  withdrawals: getTransactionCurrency('amount', {
+    amount: transactionsData.withdrawals,
+  }),
+  aum: getTransactionCurrency('amount', { amount: transactionsData.aum }),
+}))
+
+const transactionColumns = [
+  { label: __('ID'), key: 'transaction_id', width: '10rem' },
+  { label: __('Timestamp'), key: 'timestamp', width: '12rem' },
+  { label: __('Type'), key: 'type', width: '7rem' },
+  { label: __('Amount'), key: 'amount', align: 'right', width: '8rem' },
+]
 
 const sections = createResource({
   url: 'crm.fcrm.doctype.crm_fields_layout.crm_fields_layout.get_sidepanel_sections',
@@ -338,71 +435,6 @@ function getParsedSections(_sections) {
     return section
   })
 }
-
-const { getFormattedCurrency } = getMeta('CRM Deal')
-
-const columns = computed(() => dealColumns)
-
-function getDealRowObject(deal) {
-  return {
-    name: deal.name,
-    organization: {
-      label: deal.organization,
-      logo: getOrganization(deal.organization)?.organization_logo,
-    },
-    deal_value: getFormattedCurrency('deal_value', deal),
-    status: {
-      label: deal.status,
-      color: getDealStatus(deal.status)?.color,
-    },
-    email: deal.email,
-    mobile_no: deal.mobile_no,
-    deal_owner: {
-      label: deal.deal_owner && getUser(deal.deal_owner).full_name,
-      ...(deal.deal_owner && getUser(deal.deal_owner)),
-    },
-    modified: timestampCell(deal.modified),
-  }
-}
-
-const dealColumns = [
-  {
-    label: __('Organization'),
-    key: 'organization',
-    width: '11rem',
-  },
-  {
-    label: __('Amount'),
-    key: 'deal_value',
-    align: 'right',
-    width: '9rem',
-  },
-  {
-    label: __('Status'),
-    key: 'status',
-    width: '10rem',
-  },
-  {
-    label: __('Email'),
-    key: 'email',
-    width: '12rem',
-  },
-  {
-    label: __('Mobile Number'),
-    key: 'mobile_no',
-    width: '11rem',
-  },
-  {
-    label: __('Deal Owner'),
-    key: 'deal_owner',
-    width: '10rem',
-  },
-  {
-    label: __('Last Modified'),
-    key: 'modified',
-    width: '8rem',
-  },
-]
 
 const { showModal } = useDoctypeModal()
 
