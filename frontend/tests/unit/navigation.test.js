@@ -12,6 +12,14 @@ describe('navigationItems', () => {
     )
     expect(mobileRoutes).not.toContain('Dashboard')
     expect(mobileRoutes).not.toContain('Calendar')
-    expect(mobileRoutes).toContain('Leads')
+    expect(mobileRoutes).toContain('Contacts')
+  })
+
+  it('leaves hidden destinations out of the menus', () => {
+    const routes = getNavigationItems().map((item) => item.route)
+    expect(routes).not.toContain('Leads')
+    expect(routes).not.toContain('Deals')
+    expect(routes).not.toContain('Organizations')
+    expect(routes).toContain('Contacts')
   })
 })
