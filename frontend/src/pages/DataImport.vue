@@ -40,7 +40,7 @@ interface CrmPage {
 const crmPages: Record<string, CrmPage> = {
   'CRM Lead': { title: 'Leads', list: 'Leads', page: 'Lead', param: 'leadId' },
   'CRM Deal': { title: 'Deals', list: 'Deals', page: 'Deal', param: 'dealId' },
-  Contact: {
+  'CRM Client': {
     title: 'Contacts',
     list: 'Contacts',
     page: 'Contact',

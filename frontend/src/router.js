@@ -254,7 +254,7 @@ router.beforeEach(async (to, from, next) => {
       const doctypeMap = {
         Leads: 'CRM Lead',
         Deals: 'CRM Deal',
-        Contacts: 'Contact',
+        Contacts: 'CRM Client',
         Organizations: 'CRM Organization',
         Notes: 'FCRM Note',
         Tasks: 'CRM Task',

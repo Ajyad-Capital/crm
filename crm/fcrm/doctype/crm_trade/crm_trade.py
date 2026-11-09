@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from crm.api.contact import flag_linked_contacts
+from crm.api.client import flag_linked_clients
 
 
 class CRMTrade(Document):
@@ -114,4 +114,4 @@ class CRMTrade(Document):
 			frappe.throw(_("Either Account ID or Email is required to link the trade to a contact"))
 
 	def on_update(self):
-		flag_linked_contacts(self)
+		flag_linked_clients(self)

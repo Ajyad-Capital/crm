@@ -99,7 +99,7 @@ const timestampFilter = ref(null)
 let filterRequest = 0
 async function loadTimestampFilter() {
   const request = ++filterRequest
-  const filter = await call('crm.api.contact.get_timestamp_filter', {
+  const filter = await call('crm.api.client.get_timestamp_filter', {
     period: period.value,
     date_from: dateFrom.value || null,
     date_to: dateTo.value || null,
