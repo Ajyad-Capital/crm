@@ -28,6 +28,8 @@ async function getSetupRedirect(to, isAdminUser) {
   return required ? { name: 'Setup' } : null
 }
 
+// Leads, Deals and Organizations are switched off for now: their routes stay registered
+// so old links and saved views resolve, but they all land on Contacts.
 const routes = [
   {
     path: '/',
@@ -47,25 +49,23 @@ const routes = [
     alias: '/leads',
     path: '/leads/view/:viewType?',
     name: 'Leads',
-    component: () => import('@/pages/Leads.vue'),
+    redirect: { name: 'Contacts' },
   },
   {
     path: '/leads/:leadId',
     name: 'Lead',
-    component: () => import(`@/pages/${handleMobileView('Lead')}.vue`),
-    props: true,
+    redirect: { name: 'Contacts' },
   },
   {
     alias: '/deals',
     path: '/deals/view/:viewType?',
     name: 'Deals',
-    component: () => import('@/pages/Deals.vue'),
+    redirect: { name: 'Contacts' },
   },
   {
     path: '/deals/:dealId',
     name: 'Deal',
-    component: () => import(`@/pages/${handleMobileView('Deal')}.vue`),
-    props: true,
+    redirect: { name: 'Contacts' },
   },
   {
     alias: '/notes',
@@ -95,13 +95,12 @@ const routes = [
     alias: '/organizations',
     path: '/organizations/view/:viewType?',
     name: 'Organizations',
-    component: () => import('@/pages/Organizations.vue'),
+    redirect: { name: 'Contacts' },
   },
   {
     path: '/organizations/:organizationId',
     name: 'Organization',
-    component: () => import(`@/pages/${handleMobileView('Organization')}.vue`),
-    props: true,
+    redirect: { name: 'Contacts' },
   },
   {
     alias: '/call-logs',
@@ -193,12 +192,12 @@ router.beforeEach(async (to, from, next) => {
 
     let defaultView = getDefaultView()
     if (!defaultView) {
-      next({ name: 'Leads' })
+      next({ name: 'Contacts' })
       return
     }
 
     let { route_name, type, name, is_standard } = defaultView
-    route_name = route_name || 'Leads'
+    route_name = route_name || 'Contacts'
 
     if (name && !is_standard) {
       next({
