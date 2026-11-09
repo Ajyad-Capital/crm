@@ -121,6 +121,38 @@ def get_period_bounds(period: str, date_from=None, date_to=None):
 	return start, add_days(end, 1) if end else None
 
 
+def filters_to_conditions(filters):
+	"""A list view filter dict ({field: value | [operator, value]}) as get_list filter conditions."""
+	filters = frappe.parse_json(filters) or {}
+	if not isinstance(filters, dict):
+		frappe.throw(_("Invalid filters"))
+
+	return [
+		[fieldname, *value] if isinstance(value, list) else [fieldname, "=", value]
+		for fieldname, value in filters.items()
+	]
+
+
+@frappe.whitelist()
+def get_status_counts(filters: str | dict | None = None):
+	"""How many contacts have each Status, among those matching the list view `filters`.
+
+	A Status filter is ignored, so the counts of the other statuses stay visible while the list
+	is narrowed to one. get_list applies the contact permissions of the current user.
+	"""
+	conditions = [c for c in filters_to_conditions(filters) if c[0] != "ajyad_status"]
+
+	rows = frappe.get_list(
+		"Contact",
+		filters=conditions,
+		fields=["ajyad_status", {"COUNT": "*", "as": "count"}],
+		group_by="ajyad_status",
+	)
+	counts = {row.ajyad_status: cint(row.count) for row in rows}
+
+	return {status: counts.get(status, 0) for status in ("Approved", "Rejected", "Pending", "Blocked")}
+
+
 def get_contact_link_filters(contact: str):
 	"""OR filters matching records tied to a contact by its Account ID or any of its emails."""
 	return build_link_filters(frappe.get_doc("Contact", contact))

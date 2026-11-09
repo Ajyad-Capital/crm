@@ -41,3 +41,4 @@ crm.patches.v1_0.add_data_import_quick_filters
 crm.patches.v1_0.add_ajyad_contact_fields
 crm.patches.v1_0.flag_funded_and_traded_contacts
 crm.patches.v1_0.add_transaction_trade_quick_filters
+crm.patches.v1_0.add_blocked_contact_status
