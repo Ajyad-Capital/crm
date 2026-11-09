@@ -302,7 +302,7 @@ CONTACT_CUSTOM_FIELDS = [
 		"fieldname": "ajyad_status",
 		"fieldtype": "Select",
 		"label": "Status",
-		"options": "\nApproved\nRejected\nPending",
+		"options": "\nApproved\nRejected\nPending\nBlocked",
 		"insert_after": "ajyad_type",
 	},
 	{

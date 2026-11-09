@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
-from crm.api.contact import flag_linked_contacts
+from crm.api.contact import filters_to_conditions, flag_linked_contacts
 
 
 class CRMTransaction(Document):
@@ -86,14 +86,7 @@ def get_totals(filters: str | dict | None = None):
 	Amounts are signed: a positive amount is a deposit and a negative one a withdrawal.
 	get_list applies the transaction permissions of the current user.
 	"""
-	filters = frappe.parse_json(filters) or {}
-	if not isinstance(filters, dict):
-		frappe.throw(_("Invalid filters"))
-
-	conditions = [
-		[fieldname, *value] if isinstance(value, list) else [fieldname, "=", value]
-		for fieldname, value in filters.items()
-	]
+	conditions = filters_to_conditions(filters)
 
 	def total(*extra):
 		result = frappe.get_list(

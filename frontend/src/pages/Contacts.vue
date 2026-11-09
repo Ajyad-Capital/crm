@@ -24,6 +24,7 @@
     v-model:updatedPageCount="updatedPageCount"
     doctype="Contact"
   />
+  <ContactStatusCards v-if="contacts.data" class="mb-4 mt-3" v-bind="statusCards" />
   <ContactsListView
     v-if="contacts.data && rows.length"
     ref="contactsListView"
@@ -75,6 +76,7 @@ import CustomActions from '@/components/CustomActions.vue'
 import ContactsIcon from '@/components/Icons/ContactsIcon.vue'
 import LayoutHeader from '@/components/LayoutHeader.vue'
 import ContactModal from '@/components/Modals/ContactModal.vue'
+import ContactStatusCards from '@/components/ContactStatusCards.vue'
 import ContactsListView from '@/components/ListViews/ContactsListView.vue'
 import EmptyState from '@/components/ListViews/EmptyState.vue'
 import ViewControls from '@/components/ViewControls.vue'
@@ -82,7 +84,8 @@ import { getMeta } from '@/stores/meta'
 import { organizationsStore } from '@/stores/organizations.js'
 import { formatDate } from '@/utils'
 import { timestampCell } from '@/composables/useTimelinePreferences'
-import { ref, computed } from 'vue'
+import { call } from 'frappe-ui'
+import { ref, computed, reactive, watch } from 'vue'
 
 const { getFormattedPercent, getFormattedFloat, getFormattedCurrency } =
   getMeta('Contact')
@@ -98,6 +101,30 @@ const loadMore = ref(1)
 const triggerResize = ref(1)
 const updatedPageCount = ref(20)
 const viewControls = ref(null)
+
+// how many contacts have each Status, among those the list is filtered to
+const statusCounts = reactive({ Approved: 0, Rejected: 0, Pending: 0, Blocked: 0 })
+const statusCards = computed(() => ({
+  approved: statusCounts.Approved,
+  rejected: statusCounts.Rejected,
+  pending: statusCounts.Pending,
+  blocked: statusCounts.Blocked,
+}))
+
+// the list reloads whenever its filters change, so refresh the counts with it
+let statusRequest = 0
+watch(
+  () => contacts.value?.data,
+  async (data) => {
+    if (!data) return
+    const request = ++statusRequest
+    const result = await call('crm.api.contact.get_status_counts', {
+      filters: contacts.value.params?.filters || {},
+    })
+    // a newer filter change has already asked again; drop this late answer
+    if (request === statusRequest) Object.assign(statusCounts, result)
+  },
+)
 
 const rows = computed(() => {
   if (
