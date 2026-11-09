@@ -154,10 +154,33 @@
             {{ __('No transactions in this period.') }}
           </div>
         </template>
+        <template
+          v-else-if="tab.value === 'trades' && tradesData.overall_count"
+        >
+          <TransactionPeriodFilter
+            v-model:period="tradePeriod"
+            v-model:date-from="tradeDateFrom"
+            v-model:date-to="tradeDateTo"
+            class="mt-4"
+          />
+          <TradeSummaryCards class="mt-3" :total-trades="tradesData.total_count" />
+          <TransactionsListView
+            v-if="tradeRows.length"
+            v-model:page-length="tradePageLength"
+            class="mt-4"
+            :rows="tradeRows"
+            :columns="tradeColumns"
+            :total-count="tradesData.total_count"
+            @load-more="loadTrades(true)"
+          />
+          <div v-else class="mt-10 text-center text-p-base text-ink-gray-5">
+            {{ __('No trades in this period.') }}
+          </div>
+        </template>
         <div
           v-if="
             (tab.value === 'transactions' && !transactionsData.overall_count) ||
-            tab.value === 'trades'
+            (tab.value === 'trades' && !tradesData.overall_count)
           "
           class="grid flex-1 place-items-center text-2xl-medium text-ink-gray-4"
         >
@@ -182,6 +205,8 @@ import LucideArrowLeftRight from '~icons/lucide/arrow-left-right'
 import LucideTrendingUp from '~icons/lucide/trending-up'
 import TransactionsListView from '@/components/ListViews/TransactionsListView.vue'
 import TransactionSummaryCards from '@/components/TransactionSummaryCards.vue'
+import { useLinkedTrades } from '@/composables/useLinkedTrades'
+import TradeSummaryCards from '@/components/TradeSummaryCards.vue'
 import TransactionPeriodFilter from '@/components/TransactionPeriodFilter.vue'
 import { validateIsImageFile } from '@/utils'
 import { useContactFields } from '@/composables/useContactFields'
@@ -309,6 +334,17 @@ async function deleteContact() {
   })
 }
 
+const {
+  data: tradesData,
+  rows: tradeRows,
+  columns: tradeColumns,
+  pageLength: tradePageLength,
+  period: tradePeriod,
+  dateFrom: tradeDateFrom,
+  dateTo: tradeDateTo,
+  load: loadTrades,
+} = useLinkedTrades(props.contactId)
+
 const activeTab = ref('details')
 const tabs = [
   {
@@ -324,13 +360,12 @@ const tabs = [
     iconLeft: h(LucideArrowLeftRight, { class: 'h-4 w-4' }),
     count: computed(() => transactionsData.overall_count),
   },
-  // placeholder until the Trades columns and data source are defined
   {
     name: 'Trades',
     value: 'trades',
     label: __('Trades'),
     iconLeft: h(LucideTrendingUp, { class: 'h-4 w-4' }),
-    count: 0,
+    count: computed(() => tradesData.overall_count),
   },
 ]
 
