@@ -14,6 +14,7 @@ export const navigationItems = [
     icon: LucideLayoutDashboard,
     route: 'Dashboard',
     desktopOnly: true,
+    hidden: true,
   },
   // hidden: routes stay registered (direct links work) but are left out of the menus
   { label: 'Leads', icon: LeadsIcon, route: 'Leads', hidden: true },
