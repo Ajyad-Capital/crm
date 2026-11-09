@@ -12,7 +12,7 @@
         variant="solid"
         :label="__('Create')"
         iconLeft="lucide-plus"
-        @click="showContactModal = true"
+        @click="createClient"
       />
     </template>
   </LayoutHeader>
@@ -22,7 +22,7 @@
     v-model:loadMore="loadMore"
     v-model:resizeColumn="triggerResize"
     v-model:updatedPageCount="updatedPageCount"
-    doctype="Contact"
+    doctype="CRM Client"
   />
   <ContactStatusCards v-if="contacts.data" class="mb-4 mt-3" v-bind="statusCards" />
   <ContactsListView
@@ -55,18 +55,13 @@
     :title="__('No contacts yet')"
     :description="
       __(
-        'Contacts are the people you talk to at your leads and customers. They are added when you convert a lead, or you can add them here.',
+        'Contacts are your clients. Add them here, or import them from a file.',
       )
     "
     :filtered="!!Object.keys(contacts.params?.filters || {}).length"
     docsLink="https://docs.frappe.io/crm/contact"
-    importDoctype="Contact"
-    @create="showContactModal = true"
-  />
-  <ContactModal
-    v-if="showContactModal"
-    v-model="showContactModal"
-    :contact="{}"
+    importDoctype="CRM Client"
+    @create="createClient"
   />
 </template>
 
@@ -75,23 +70,36 @@ import ViewBreadcrumbs from '@/components/ViewBreadcrumbs.vue'
 import CustomActions from '@/components/CustomActions.vue'
 import ContactsIcon from '@/components/Icons/ContactsIcon.vue'
 import LayoutHeader from '@/components/LayoutHeader.vue'
-import ContactModal from '@/components/Modals/ContactModal.vue'
 import ContactStatusCards from '@/components/ContactStatusCards.vue'
 import ContactsListView from '@/components/ListViews/ContactsListView.vue'
 import EmptyState from '@/components/ListViews/EmptyState.vue'
 import ViewControls from '@/components/ViewControls.vue'
 import { getMeta } from '@/stores/meta'
-import { organizationsStore } from '@/stores/organizations.js'
+import { useDoctypeModal } from '@/composables/doctypeModal'
+import { useTelemetry } from '@framework/ui/telemetry'
 import { formatDate } from '@/utils'
 import { timestampCell } from '@/composables/useTimelinePreferences'
 import { call } from 'frappe-ui'
 import { ref, computed, reactive, watch } from 'vue'
 
 const { getFormattedPercent, getFormattedFloat, getFormattedCurrency } =
-  getMeta('Contact')
-const { getOrganization } = organizationsStore()
+  getMeta('CRM Client')
 
-const showContactModal = ref(false)
+const { showModal } = useDoctypeModal()
+const { capture } = useTelemetry()
+
+function createClient() {
+  showModal({
+    doctype: 'CRM Client',
+    title: 'Contact',
+    callbacks: {
+      afterInsert: () => {
+        capture('contact_created')
+        contacts.value.reload()
+      },
+    },
+  })
+}
 
 const contactsListView = ref(null)
 
@@ -118,7 +126,7 @@ watch(
   async (data) => {
     if (!data) return
     const request = ++statusRequest
-    const result = await call('crm.api.contact.get_status_counts', {
+    const result = await call('crm.api.client.get_status_counts', {
       filters: contacts.value.params?.filters || {},
     })
     // a newer filter change has already asked again; drop this late answer
@@ -166,11 +174,6 @@ const rows = computed(() => {
           label: contact.full_name,
           image_label: contact.full_name,
           image: contact.image,
-        }
-      } else if (row == 'company_name') {
-        _rows[row] = {
-          label: contact.company_name,
-          logo: getOrganization(contact.company_name)?.organization_logo,
         }
       } else if (['modified', 'creation'].includes(row)) {
         _rows[row] = timestampCell(contact[row])

@@ -62,18 +62,15 @@
             </div>
             <div class="flex flex-col gap-2 truncate">
               <div class="truncate text-lg-medium text-ink-gray-9">
-                <span v-if="contact.doc.salutation">
-                  {{ contact.doc.salutation + '. ' }}
-                </span>
                 <span>{{ contact.doc.full_name }}</span>
               </div>
               <div class="flex items-center gap-1.5">
                 <Button
-                  v-if="callEnabled && contact.doc.mobile_no"
+                  v-if="callEnabled && contact.doc.phone"
                   :label="__('Make a Call')"
                   size="sm"
                   :iconLeft="PhoneIcon"
-                  @click="callEnabled && makeCall(contact.doc.mobile_no)"
+                  @click="callEnabled && makeCall(contact.doc.phone)"
                 />
                 <Button
                   v-if="canDelete"
@@ -82,14 +79,6 @@
                   size="sm"
                   icon-left="lucide-trash-2"
                   @click="deleteContact"
-                />
-                <Avatar
-                  v-if="contact.doc.company_name"
-                  size="md"
-                  :label="contact.doc.company_name"
-                  :image="
-                    getOrganization(contact.doc.company_name)?.organization_logo
-                  "
                 />
               </div>
               <ErrorMessage :message="__(error)" />
@@ -123,7 +112,7 @@
           >
             <SidePanelLayout
               :sections="sections.data"
-              doctype="Contact"
+              doctype="CRM Client"
               :docname="contact.doc.name"
               @reload="sections.reload"
             />
@@ -209,14 +198,12 @@ import { useLinkedTrades } from '@/composables/useLinkedTrades'
 import TradeSummaryCards from '@/components/TradeSummaryCards.vue'
 import TransactionPeriodFilter from '@/components/TransactionPeriodFilter.vue'
 import { validateIsImageFile } from '@/utils'
-import { useContactFields } from '@/composables/useContactFields'
 import { timestampCell } from '@/composables/useTimelinePreferences'
 import { getView } from '@/utils/view'
 import { useDocument } from '@/data/document'
 import { getSettings } from '@/stores/settings'
 import { getMeta } from '@/stores/meta'
 import { globalStore } from '@/stores/global.js'
-import { organizationsStore } from '@/stores/organizations.js'
 import { callEnabled } from '@/composables/telephony'
 import {
   Breadcrumbs,
@@ -229,17 +216,13 @@ import {
   Dropdown,
   toast,
 } from 'frappe-ui'
-import { useDoctypeModal } from '@/composables/doctypeModal'
-import { useTelemetry } from '@framework/ui/telemetry'
 import { ref, reactive, computed, watch, h, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const { brand } = getSettings()
 const { $dialog, makeCall } = globalStore()
 
-const { getOrganization } = organizationsStore()
-const { doctypeMeta } = getMeta('Contact')
-const { capture } = useTelemetry()
+const { doctypeMeta } = getMeta('CRM Client')
 
 const props = defineProps({
   contactId: { type: String, required: true },
@@ -252,11 +235,9 @@ const {
   document: contact,
   permissions,
   triggerOnRender,
-} = useDocument('Contact', props.contactId)
+} = useDocument('CRM Client', props.contactId)
 
 const canDelete = computed(() => permissions.data?.permissions?.delete || false)
-
-const transformField = useContactFields(contact)
 
 onMounted(async () => {
   if (contact.doc) await triggerOnRender()
@@ -266,7 +247,7 @@ const breadcrumbs = computed(() => {
   let items = [{ label: __('Contacts'), route: { name: 'Contacts' } }]
 
   if (route.query.view || route.query.viewType) {
-    let view = getView(route.query.view, route.query.viewType, 'Contact')
+    let view = getView(route.query.view, route.query.viewType, 'CRM Client')
     if (view) {
       items.push({
         label: __(view.label),
@@ -323,7 +304,7 @@ async function deleteContact() {
         variant: 'solid',
         async onClick({ close }) {
           await call('frappe.client.delete', {
-            doctype: 'Contact',
+            doctype: 'CRM Client',
             name: props.contactId,
           })
           close()
@@ -386,8 +367,8 @@ const transactionsData = reactive({
 let transactionsRequest = 0
 async function loadTransactions(append = false) {
   const request = ++transactionsRequest
-  const data = await call('crm.api.contact.get_linked_transactions', {
-    contact: props.contactId,
+  const data = await call('crm.api.client.get_linked_transactions', {
+    client: props.contactId,
     start: append ? transactionsData.rows.length : 0,
     page_length: transactionPageLength.value,
     period: transactionPeriod.value,
@@ -453,37 +434,9 @@ const transactionColumns = [
 
 const sections = createResource({
   url: 'crm.fcrm.doctype.crm_fields_layout.crm_fields_layout.get_sidepanel_sections',
-  cache: ['sidePanelSections', 'Contact'],
-  params: { doctype: 'Contact' },
+  cache: ['sidePanelSections', 'CRM Client'],
+  params: { doctype: 'CRM Client' },
   auto: true,
-  transform: (data) => computed(() => getParsedSections(data)),
+  transform: (data) => computed(() => data),
 })
-
-function getParsedSections(_sections) {
-  return _sections.map((section) => {
-    section.columns = section.columns.map((column) => {
-      column.fields = column.fields.map((field) =>
-        transformField(field, { showAddressModal }),
-      )
-      return column
-    })
-    return section
-  })
-}
-
-const { showModal } = useDoctypeModal()
-
-function showAddressModal(_address) {
-  showModal({
-    name: _address || null,
-    doctype: 'Address',
-    callbacks: {
-      afterInsert: (d) => {
-        capture('address_created')
-        contact.doc.address = d.name
-        contact.save.submit()
-      },
-    },
-  })
-}
 </script>

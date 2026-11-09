@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
-from crm.api.contact import filters_to_conditions, flag_linked_contacts
+from crm.api.client import filters_to_conditions, flag_linked_clients
 
 
 class CRMTransaction(Document):
@@ -75,7 +75,7 @@ class CRMTransaction(Document):
 			frappe.throw(_("Either Account ID or Email is required to link the transaction to a contact"))
 
 	def on_update(self):
-		flag_linked_contacts(self)
+		flag_linked_clients(self)
 
 
 @frappe.whitelist()

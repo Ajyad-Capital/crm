@@ -38,7 +38,6 @@ crm.patches.v1_0.drop_enrichment_headers_scope
 crm.patches.v1_0.add_availability_statuses
 crm.patches.v1_0.set_setup_completed_for_existing_sites
 crm.patches.v1_0.add_data_import_quick_filters
-crm.patches.v1_0.add_ajyad_contact_fields
-crm.patches.v1_0.flag_funded_and_traded_contacts
 crm.patches.v1_0.add_transaction_trade_quick_filters
-crm.patches.v1_0.add_blocked_contact_status
+crm.patches.v1_0.migrate_ajyad_contacts_to_clients
+crm.patches.v1_0.remove_ajyad_contact_customizations

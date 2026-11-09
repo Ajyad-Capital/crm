@@ -43,7 +43,7 @@
       v-slot="{ idx, column, item, row }"
       class="mx-3 sm:mx-5"
       :rows="rows"
-      doctype="Contact"
+      doctype="CRM Client"
     >
       <ListRowItem :item="item" :align="column.align" class="overflow-hidden">
         <template #prefix>
@@ -65,7 +65,7 @@
               size="sm"
             />
           </div>
-          <div v-else-if="column.key === 'mobile_no' && item">
+          <div v-else-if="column.key === 'phone' && item">
             <PhoneIcon class="h-4 w-4" />
           </div>
         </template>
@@ -168,7 +168,7 @@
   <ListBulkActions
     ref="listBulkActionsRef"
     v-model="list"
-    doctype="Contact"
+    doctype="CRM Client"
     :options="{
       hideAssign: true,
     }"

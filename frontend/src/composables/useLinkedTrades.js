@@ -19,8 +19,8 @@ export function useLinkedTrades(contactId) {
   let latestRequest = 0
   async function load(append = false) {
     const request = ++latestRequest
-    const result = await call('crm.api.contact.get_linked_trades', {
-      contact: contactId,
+    const result = await call('crm.api.client.get_linked_trades', {
+      client: contactId,
       start: append ? data.rows.length : 0,
       page_length: pageLength.value,
       period: period.value,
