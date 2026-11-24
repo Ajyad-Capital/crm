@@ -10,13 +10,6 @@
       />
     </template>
   </LayoutHeader>
-  <TransactionPeriodFilter
-    v-if="timestampFilter"
-    v-model:period="period"
-    v-model:date-from="dateFrom"
-    v-model:date-to="dateTo"
-    class="mt-3"
-  />
   <ViewControls
     v-if="timestampFilter"
     ref="viewControls"
@@ -26,7 +19,17 @@
     v-model:updatedPageCount="updatedPageCount"
     doctype="CRM Transaction"
     :filters="timestampFilter"
-  />
+  >
+    <template #before-quick-filters>
+      <TransactionPeriodFilter
+        v-model:period="period"
+        v-model:date-from="dateFrom"
+        v-model:date-to="dateTo"
+        inline
+      />
+      <div class="h-[70%] border-l" />
+    </template>
+  </ViewControls>
   <TransactionSummaryCards
     v-if="records.data"
     class="mb-4 mt-3"

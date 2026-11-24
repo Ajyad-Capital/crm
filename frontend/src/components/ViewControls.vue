@@ -4,6 +4,7 @@
     class="flex flex-col justify-between gap-2 sm:px-5 px-3 py-4"
   >
     <div class="flex flex-col gap-2">
+      <slot name="before-quick-filters" />
       <div class="flex items-center justify-between gap-2">
         <FadedScrollableDiv
           class="flex flex-1 items-center overflow-x-auto -ml-1 h-9"
@@ -150,6 +151,7 @@
     </div>
   </div>
   <div v-else class="flex items-center justify-between gap-2 px-5 py-4">
+    <slot name="before-quick-filters" />
     <FadedScrollableDiv
       class="flex flex-1 items-center overflow-x-auto -ml-1 h-9"
       orientation="horizontal"

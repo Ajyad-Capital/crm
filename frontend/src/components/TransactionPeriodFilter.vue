@@ -1,5 +1,8 @@
 <template>
-  <div class="mx-3 flex flex-wrap items-center gap-2 sm:mx-5">
+  <div
+    class="flex flex-wrap items-center gap-2"
+    :class="{ 'mx-3 sm:mx-5': !inline }"
+  >
     <div class="w-44">
       <FormControl
         v-model="period"
@@ -28,6 +31,8 @@
 <script setup>
 import { FormControl, DatePicker } from 'frappe-ui'
 import { getFormat } from '@/utils'
+
+defineProps({ inline: Boolean })
 
 const period = defineModel('period', { type: String, default: 'today' })
 const dateFrom = defineModel('dateFrom', { type: String, default: '' })
