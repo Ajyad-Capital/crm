@@ -73,7 +73,7 @@ import ViewControls from '@/components/ViewControls.vue'
 import RecordsListView from '@/components/ListViews/RecordsListView.vue'
 import EmptyState from '@/components/ListViews/EmptyState.vue'
 import LucideTrendingUp from '~icons/lucide/trending-up'
-import { tradeTimestampCell } from '@/composables/useTimelinePreferences'
+import { timestampCell } from '@/composables/useTimelinePreferences'
 import TradeSummaryCards from '@/components/TradeSummaryCards.vue'
 import TransactionPeriodFilter from '@/components/TransactionPeriodFilter.vue'
 import { call } from 'frappe-ui'
@@ -110,7 +110,7 @@ loadTimestampFilter()
 watch([period, dateFrom, dateTo], loadTimestampFilter)
 
 function getValue(row, record) {
-  if (row === 'timestamp') return tradeTimestampCell(record.timestamp)
+  if (row === 'timestamp') return timestampCell(record.timestamp)
   return getTradeValue(row, record)
 }
 

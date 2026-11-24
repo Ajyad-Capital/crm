@@ -1,6 +1,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { call } from 'frappe-ui'
-import { tradeTimestampCell } from '@/composables/useTimelinePreferences'
+import { timestampCell } from '@/composables/useTimelinePreferences'
 import {
   formatCommission,
   formatPrice,
@@ -48,7 +48,7 @@ export function useLinkedTrades(contactId) {
       price: formatPrice(row.price),
       currency: row.currency,
       commission: formatCommission(row.commission),
-      timestamp: tradeTimestampCell(row.timestamp),
+      timestamp: timestampCell(row.timestamp),
     })),
   )
 

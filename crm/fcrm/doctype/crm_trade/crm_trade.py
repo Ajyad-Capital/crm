@@ -37,7 +37,7 @@ class CRMTrade(Document):
 				"label": "Timestamp",
 				"type": "Datetime",
 				"key": "timestamp",
-				"width": "14rem",
+				"width": "9rem",
 			},
 			{
 				"label": "Account ID",
