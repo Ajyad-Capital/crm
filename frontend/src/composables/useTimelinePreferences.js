@@ -1,6 +1,8 @@
 import { computed } from 'vue'
+import { getConfig } from 'frappe-ui'
 import { getSettings } from '@/stores/settings'
 import { formatDate, timeAgo } from '@/utils'
+import { formatUtcTimestamp } from '@/utils/timestamps'
 
 export function useTimelinePreferences() {
   const { _settings } = getSettings()
@@ -37,5 +39,15 @@ export function timestampCell(date) {
   return {
     label: showExact ? relative : exact,
     timeAgo: showExact ? exact : relative,
+  }
+}
+
+// A trade's timestamp is always shown as ISO 8601 UTC (e.g. 2026-11-20T15:23:38.500Z),
+// whatever the timeline setting is; the relative time is the tooltip.
+export function tradeTimestampCell(date) {
+  if (!date) return { label: '', timeAgo: '' }
+  return {
+    label: __(timeAgo(date)),
+    timeAgo: formatUtcTimestamp(date, getConfig('systemTimezone')),
   }
 }
