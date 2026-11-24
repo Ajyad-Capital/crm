@@ -3,7 +3,7 @@ import json
 import frappe
 
 QUICK_FILTERS = {
-	"CRM Transaction": ["account_id", "email"],
+	"CRM Transaction": ["name", "account_id"],
 	"CRM Trade": ["account_id", "email", "symbol_id", "side"],
 }
 

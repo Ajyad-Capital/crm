@@ -140,7 +140,7 @@
             :icon="tab.iconLeft"
             name="Transactions"
             :description="
-              __('No transactions match this contact\'s Account ID or email.')
+              __('No transactions match this contact\'s Account ID.')
             "
           />
         </template>
@@ -363,9 +363,7 @@ function getTransactionType(amount) {
 const transactionRows = computed(() =>
   transactionsData.rows.map((row) => ({
     name: row.name,
-    transaction_id: row.transaction_id,
     account_id: row.account_id,
-    email: row.email,
     timestamp: timestampCell(row.timestamp),
     type: getTransactionType(row.amount),
     amount: getTransactionCurrency('amount', row),
@@ -383,7 +381,7 @@ const transactionSummary = computed(() => ({
 }))
 
 const transactionColumns = [
-  { label: __('ID'), key: 'transaction_id', width: '14rem' },
+  { label: __('ID'), key: 'name', width: '14rem' },
   { label: __('Timestamp'), key: 'timestamp', width: '14rem' },
   { label: __('Type'), key: 'type', width: '10rem' },
   { label: __('Amount'), key: 'amount', align: 'right', width: '8rem' },

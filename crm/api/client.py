@@ -9,6 +9,9 @@ STATUSES = ("Approved", "Rejected", "Pending", "Blocked")
 # Client check that is ticked once the client has a record of that doctype
 ACTIVITY_FLAGS = {"funded": "CRM Transaction", "traded": "CRM Trade"}
 
+# Fields a record of that doctype is matched to a client on (same fieldnames on CRM Client)
+LINK_FIELDS = {"CRM Transaction": ("account_id",), "CRM Trade": ("account_id", "email")}
+
 
 def get_period_bounds(period: str, date_from=None, date_to=None):
 	"""First day (inclusive) and day after the last (exclusive) of a period, in the site timezone.
@@ -61,14 +64,9 @@ def filters_to_conditions(filters):
 	]
 
 
-def build_link_filters(doc):
-	"""OR filters matching records tied to a client by its Account ID or its Email."""
-	or_filters = []
-	if doc.get("account_id"):
-		or_filters.append(["account_id", "=", doc.account_id])
-	if doc.get("email"):
-		or_filters.append(["email", "=", doc.email])
-	return or_filters
+def build_link_filters(doc, doctype):
+	"""OR filters matching `doctype` records tied to the client `doc`."""
+	return [[fieldname, "=", doc.get(fieldname)] for fieldname in LINK_FIELDS[doctype] if doc.get(fieldname)]
 
 
 def sync_funded_and_traded(doc):
@@ -77,12 +75,11 @@ def sync_funded_and_traded(doc):
 	Covers clients created or edited after their records were imported. The other direction,
 	a new record ticking its clients, is flag_linked_clients.
 	"""
-	or_filters = build_link_filters(doc)
-	if not or_filters:
-		return
-
 	for fieldname, doctype in ACTIVITY_FLAGS.items():
-		if not doc.get(fieldname) and frappe.get_all(doctype, or_filters=or_filters, limit=1, pluck="name"):
+		if doc.get(fieldname):
+			continue
+		or_filters = build_link_filters(doc, doctype)
+		if or_filters and frappe.get_all(doctype, or_filters=or_filters, limit=1, pluck="name"):
 			doc.set(fieldname, 1)
 
 
@@ -93,11 +90,7 @@ def flag_linked_clients(doc, method=None):
 	"""
 	fieldname = next(f for f, doctype in ACTIVITY_FLAGS.items() if doctype == doc.doctype)
 
-	or_filters = []
-	if doc.account_id:
-		or_filters.append(["account_id", "=", doc.account_id])
-	if doc.email:
-		or_filters.append(["email", "=", doc.email])
+	or_filters = build_link_filters(doc, doc.doctype)
 	if not or_filters:
 		return
 
@@ -108,8 +101,8 @@ def flag_linked_clients(doc, method=None):
 		)
 
 
-def get_client_link_filters(client: str):
-	return build_link_filters(frappe.get_doc("CRM Client", client))
+def get_client_link_filters(client: str, doctype: str):
+	return build_link_filters(frappe.get_doc("CRM Client", client), doctype)
 
 
 def check_client_access(client: str):
@@ -163,7 +156,7 @@ def get_linked_transactions(
 	date_from: str | None = None,
 	date_to: str | None = None,
 ):
-	"""A page of a client's transactions, matched on its Account ID or Email.
+	"""A page of a client's transactions, matched on its Account ID.
 
 	Amounts are signed: a positive amount is a deposit and a negative one a withdrawal.
 	`period` narrows the rows, `total_count` and the totals to a time window: today,
@@ -179,7 +172,7 @@ def get_linked_transactions(
 	start = max(cint(start), 0)
 	page_length = min(max(cint(page_length), 1), MAX_PAGE_LENGTH)
 	period_filters = get_period_filters(period, date_from, date_to)
-	or_filters = get_client_link_filters(client)
+	or_filters = get_client_link_filters(client, "CRM Transaction")
 
 	if not or_filters:
 		return empty
@@ -201,7 +194,7 @@ def get_linked_transactions(
 		"CRM Transaction",
 		or_filters=or_filters,
 		filters=period_filters,
-		fields=["name", "transaction_id", "account_id", "email", "timestamp", "amount"],
+		fields=["name", "account_id", "timestamp", "amount"],
 		order_by="timestamp desc, name desc",
 		offset=start,
 		limit=page_length,
@@ -240,7 +233,7 @@ def get_linked_trades(
 	start = max(cint(start), 0)
 	page_length = min(max(cint(page_length), 1), MAX_PAGE_LENGTH)
 	period_filters = get_period_filters(period, date_from, date_to)
-	or_filters = get_client_link_filters(client)
+	or_filters = get_client_link_filters(client, "CRM Trade")
 
 	if not or_filters:
 		return empty

@@ -406,9 +406,7 @@ function getTransactionType(amount) {
 const transactionRows = computed(() =>
   transactionsData.rows.map((row) => ({
     name: row.name,
-    transaction_id: row.transaction_id,
     account_id: row.account_id,
-    email: row.email,
     timestamp: timestampCell(row.timestamp),
     type: getTransactionType(row.amount),
     amount: getTransactionCurrency('amount', row),
@@ -426,7 +424,7 @@ const transactionSummary = computed(() => ({
 }))
 
 const transactionColumns = [
-  { label: __('ID'), key: 'transaction_id', width: '10rem' },
+  { label: __('ID'), key: 'name', width: '10rem' },
   { label: __('Timestamp'), key: 'timestamp', width: '12rem' },
   { label: __('Type'), key: 'type', width: '7rem' },
   { label: __('Amount'), key: 'amount', align: 'right', width: '8rem' },

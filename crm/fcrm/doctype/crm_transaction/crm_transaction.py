@@ -2,7 +2,6 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
@@ -18,11 +17,9 @@ class CRMTransaction(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		account_id: DF.Data | None
+		account_id: DF.Data
 		amount: DF.Currency
-		email: DF.Data | None
 		timestamp: DF.Datetime
-		transaction_id: DF.Data
 	# end: auto-generated types
 
 	@staticmethod
@@ -31,7 +28,7 @@ class CRMTransaction(Document):
 			{
 				"label": "ID",
 				"type": "Data",
-				"key": "transaction_id",
+				"key": "name",
 				"width": "14rem",
 			},
 			{
@@ -47,12 +44,6 @@ class CRMTransaction(Document):
 				"width": "10rem",
 			},
 			{
-				"label": "Email",
-				"type": "Data",
-				"key": "email",
-				"width": "14rem",
-			},
-			{
 				"label": "Amount",
 				"type": "Currency",
 				"key": "amount",
@@ -61,18 +52,11 @@ class CRMTransaction(Document):
 		]
 		rows = [
 			"name",
-			"transaction_id",
 			"timestamp",
 			"account_id",
-			"email",
 			"amount",
 		]
 		return {"columns": columns, "rows": rows}
-
-	def validate(self):
-		# Account ID and Email are how a transaction is tied to a contact
-		if not (self.account_id or self.email):
-			frappe.throw(_("Either Account ID or Email is required to link the transaction to a contact"))
 
 	def on_update(self):
 		flag_linked_clients(self)

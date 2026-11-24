@@ -115,13 +115,13 @@ class TestFundedAndTradedFlags(CRMTestCase):
 		make_trade(account_id="FLAG-1")
 		self.assertEqual(self.flags(client), (0, 1))
 
-	def test_transaction_ticks_funded_only_by_email(self):
+	def test_transaction_ticks_funded_by_account_id(self):
 		client = make_client("FlagMail", "flag-mail@example.com", "FLAG-2")
 		frappe.get_doc(
 			{
 				"doctype": "CRM Transaction",
-				"transaction_id": "FLAG-TXN-1",
-				"email": "flag-mail@example.com",
+				"__newname": "FLAG-TXN-1",
+				"account_id": "FLAG-2",
 				"timestamp": "2026-01-01 10:00:00",
 				"amount": 5,
 			}

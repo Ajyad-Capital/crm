@@ -1,27 +1,17 @@
 {
  "actions": [],
  "allow_import": 1,
- "autoname": "field:transaction_id",
+ "autoname": "Prompt",
  "creation": "2026-11-09 10:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "transaction_id",
   "timestamp",
   "column_break_link",
   "account_id",
-  "email",
   "amount"
  ],
  "fields": [
-  {
-   "fieldname": "transaction_id",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "ID",
-   "reqd": 1,
-   "unique": 1
-  },
   {
    "fieldname": "timestamp",
    "fieldtype": "Datetime",
@@ -35,21 +25,13 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "With Email, links the transaction to a contact. At least one of the two is required.",
+   "description": "Links the transaction to a contact.",
    "fieldname": "account_id",
    "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Account ID",
-   "search_index": 1
-  },
-  {
-   "fieldname": "email",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Email",
-   "options": "Email",
+   "reqd": 1,
    "search_index": 1
   },
   {
@@ -66,7 +48,7 @@
  "modified_by": "Administrator",
  "module": "FCRM",
  "name": "CRM Transaction",
- "naming_rule": "By fieldname",
+ "naming_rule": "Set by user",
  "owner": "Administrator",
  "permissions": [
   {
@@ -102,6 +84,5 @@
  "row_format": "Dynamic",
  "sort_field": "timestamp",
  "sort_order": "DESC",
- "states": [],
- "title_field": "transaction_id"
+ "states": []
 }

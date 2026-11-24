@@ -15,13 +15,12 @@ def make_client(full_name, email=None, account_id=None, **values):
 	).insert()
 
 
-def make_transaction(transaction_id, account_id=None, email=None, amount=100, timestamp="2026-01-01 10:00:00"):
+def make_transaction(transaction_id, account_id=None, amount=100, timestamp="2026-01-01 10:00:00"):
 	return frappe.get_doc(
 		{
 			"doctype": "CRM Transaction",
-			"transaction_id": transaction_id,
+			"__newname": transaction_id,
 			"account_id": account_id,
-			"email": email,
 			"timestamp": timestamp,
 			"amount": amount,
 		}
@@ -35,11 +34,11 @@ class TestClientTransactions(CRMTestCase):
 		cls.client = make_client("TxnAlice", "txn-alice@example.com", "TXN-ACC-1")
 		cls.other = make_client("TxnBob", "txn-bob@example.com", "TXN-ACC-2")
 		make_transaction("TXN-T1", account_id="TXN-ACC-1")
-		make_transaction("TXN-T2", email="txn-alice@example.com")
-		make_transaction("TXN-T3", account_id="TXN-ACC-1", email="txn-alice@example.com")
+		make_transaction("TXN-T2", account_id="TXN-ACC-1")
+		make_transaction("TXN-T3", account_id="TXN-ACC-1")
 		make_transaction("TXN-T4", account_id="TXN-ACC-2")
 		make_transaction("TXN-T5", account_id="TXN-ACC-1", amount=-30)
-		make_transaction("TXN-T6", email="txn-alice@example.com", amount=-20.5)
+		make_transaction("TXN-T6", account_id="TXN-ACC-1", amount=-20.5)
 
 		cls.period_client = make_client("TxnPeriod", "txn-period@example.com", "TXN-ACC-P")
 		now = now_datetime()
@@ -49,9 +48,9 @@ class TestClientTransactions(CRMTestCase):
 		make_transaction("TXN-P-OLD", account_id="TXN-ACC-P", amount=1000, timestamp=add_days(now, -90))
 
 	def ids(self, client):
-		return {row.transaction_id for row in get_linked_transactions(client.name, period="all")["rows"]}
+		return {row.name for row in get_linked_transactions(client.name, period="all")["rows"]}
 
-	def test_matches_on_account_id_or_email(self):
+	def test_matches_on_account_id(self):
 		self.assertEqual(self.ids(self.client), {"TXN-T1", "TXN-T2", "TXN-T3", "TXN-T5", "TXN-T6"})
 		self.assertEqual(self.ids(self.other), {"TXN-T4"})
 
@@ -69,7 +68,7 @@ class TestClientTransactions(CRMTestCase):
 
 		self.assertEqual(first["total_count"], 5)
 		self.assertEqual([len(p["rows"]) for p in (first, second, third)], [2, 2, 1])
-		ids = [row.transaction_id for p in (first, second, third) for row in p["rows"]]
+		ids = [row.name for p in (first, second, third) for row in p["rows"]]
 		self.assertEqual(len(set(ids)), 5)
 		# totals describe all 5 transactions whatever the page is
 		self.assertEqual(first["deposits"], third["deposits"])
@@ -77,7 +76,7 @@ class TestClientTransactions(CRMTestCase):
 
 	def period_ids(self, **kwargs):
 		result = get_linked_transactions(self.period_client.name, **kwargs)
-		return {row.transaction_id for row in result["rows"]}, result
+		return {row.name for row in result["rows"]}, result
 
 	def test_defaults_to_today(self):
 		ids, result = self.period_ids()
@@ -115,7 +114,7 @@ class TestClientTransactions(CRMTestCase):
 			{"rows": [], "total_count": 0, "overall_count": 0, "deposits": 0, "withdrawals": 0, "aum": 0},
 		)
 
-	def test_transaction_needs_account_id_or_email(self):
+	def test_transaction_needs_account_id(self):
 		with self.assertRaises(frappe.ValidationError):
 			make_transaction("TXN-BAD")
 
