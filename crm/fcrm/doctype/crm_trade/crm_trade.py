@@ -6,6 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from crm.api.client import flag_linked_clients
+from crm.utils.timezones import to_site_time
 
 
 class CRMTrade(Document):
@@ -107,6 +108,9 @@ class CRMTrade(Document):
 			"commission",
 		]
 		return {"columns": columns, "rows": rows}
+
+	def before_validate(self):
+		self.timestamp = to_site_time(self.timestamp)
 
 	def validate(self):
 		# Account ID and Email are how a trade is tied to a contact

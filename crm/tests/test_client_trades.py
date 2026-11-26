@@ -1,8 +1,10 @@
 # Copyright (c) 2026, Ajyad Capital and contributors
 # See license.txt
 
+from zoneinfo import ZoneInfo
+
 import frappe
-from frappe.utils import add_days, now_datetime
+from frappe.utils import add_days, get_datetime, get_system_timezone, now_datetime
 
 from crm.api.client import get_linked_trades
 from crm.tests import CRMTestCase
@@ -92,6 +94,22 @@ class TestClientTrades(CRMTestCase):
 	def test_trade_needs_account_id_or_email(self):
 		with self.assertRaises(frappe.ValidationError):
 			make_trade()
+
+	def test_utc_timestamp_is_stored_as_site_time(self):
+		# Asia/Bahrain is UTC+3 on the dev site; compare against the site timezone, not a constant
+		trade = make_trade(account_id="TRD-ACC-1", timestamp="2026-11-20T15:23:38.500Z")
+		expected = (
+			get_datetime("2026-11-20T15:23:38.500Z")
+			.astimezone(ZoneInfo(get_system_timezone()))
+			.replace(tzinfo=None)
+		)
+		self.assertEqual(frappe.db.get_value("CRM Trade", trade.name, "timestamp"), expected)
+
+	def test_timestamp_without_timezone_is_left_as_site_time(self):
+		trade = make_trade(account_id="TRD-ACC-1", timestamp="2026-11-20 15:23:38")
+		self.assertEqual(
+			frappe.db.get_value("CRM Trade", trade.name, "timestamp"), get_datetime("2026-11-20 15:23:38")
+		)
 
 	def test_side_must_be_buy_or_sell(self):
 		with self.assertRaises(frappe.ValidationError):
